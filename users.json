@@ -1,0 +1,22 @@
+[
+  {"id": "12345678", "nombre": "Ana López", "colesterol": 290, "presion_arterial": "180/80", "glucosa": 160},
+  {"id": "23456789", "nombre": "Carlos Pérez", "colesterol": 250, "presion_arterial": "150/95", "glucosa": 130},
+  {"id": "34567890", "nombre": "María García", "colesterol": 190, "presion_arterial": "125/85", "glucosa": 95},
+  {"id": "45678901", "nombre": "Juan Rodríguez", "colesterol": 220, "presion_arterial": "140/90", "glucosa": 110},
+  {"id": "12345678", "nombre": "Laura Martínez", "colesterol": 160, "presion_arterial": "115/75", "glucosa": 80},
+  {"id": "67890123", "nombre": "Pedro Sánchez", "colesterol": 280, "presion_arterial": "160/100", "glucosa": 150},
+  {"id": "78901234", "nombre": "Sofia Ramírez", "colesterol": 200, "presion_arterial": "130/85", "glucosa": 105},
+  {"id": "89012345", "nombre": "Diego Torres", "colesterol": 170, "presion_arterial": "118/78", "glucosa": 90},
+  {"id": "90123456", "nombre": "Valentina Flores", "colesterol": 260, "presion_arterial": "145/92", "glucosa": 125},
+  {"id": "01234567", "nombre": "Andrés Morales", "colesterol": 195, "presion_arterial": "128/82", "glucosa": 100},
+  {"id": "12345679", "nombre": "Camila Reyes", "colesterol": 185, "presion_arterial": "118/80", "glucosa": 92},
+  {"id": "23456780", "nombre": "Luis Herrera", "colesterol": 215, "presion_arterial": "130/88", "glucosa": 105},
+  {"id": "34567891", "nombre": "Isabella Díaz", "colesterol": 175, "presion_arterial": "122/80", "glucosa": 88},
+  {"id": "45678902", "nombre": "Mateo Vargas", "colesterol": 240, "presion_arterial": "138/89", "glucosa": 115},
+  {"id": "56789013", "nombre": "Gabriela Castro", "colesterol": 155, "presion_arterial": "110/70", "glucosa": 75},
+  {"id": "67890124", "nombre": "Sebastián Ruiz", "colesterol": 270, "presion_arterial": "155/98", "glucosa": 140},
+  {"id": "78901235", "nombre": "Emma Silva", "colesterol": 205, "presion_arterial": "135/87", "glucosa": 108},
+  {"id": "89012346", "nombre": "Daniel Ortega", "colesterol": 165, "presion_arterial": "120/78", "glucosa": 82},
+  {"id": "90123457", "nombre": "Victoria Medina", "colesterol": 255, "presion_arterial": "148/93", "glucosa": 120},
+  {"id": "01234568", "nombre": "Alejandro Guzmán", "colesterol": 188, "presion_arterial": "126/81", "glucosa": 97}
+]

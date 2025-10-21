@@ -1,0 +1,21 @@
+# Ignorar archivo de entorno
+.env
+
+# Ignorar carpetas de dependencias
+node_modules/
+__pycache__/
+
+# Ignorar archivos temporales
+*.log
+*.tmp
+
+# Ignorar configuraciones locales
+.vscode/
+.idea/
+
+venv/
+
+user.txt
+appointments.json
+test.py
+api.py
