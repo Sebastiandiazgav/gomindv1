@@ -1,26 +1,22 @@
 import os
 import json
 import boto3
-from dotenv import load_dotenv
 import streamlit as st
 from datetime import datetime, timedelta
 import requests
 
-# Cargar variables de entorno
-load_dotenv()
-
-# Configurar cliente de Bedrock
+# Configurar cliente de Bedrock usando st.secrets
 bedrock_client = boto3.client(
     service_name='bedrock-runtime',
-    region_name=os.getenv('AWS_REGION'),
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+    region_name=st.secrets["aws"]["REGION"],
+    aws_access_key_id=st.secrets["aws"]["ACCESS_KEY_ID"],
+    aws_secret_access_key=st.secrets["aws"]["SECRET_ACCESS_KEY"]
 )
 
-# Configurar API GoMind
-API_BASE_URL = os.getenv('API_BASE_URL')
-API_EMAIL = os.getenv('API_EMAIL')
-API_PASSWORD = os.getenv('API_PASSWORD')
+# Configurar API GoMind usando st.secrets
+API_BASE_URL = st.secrets["api"]["BASE_URL"]
+API_EMAIL = st.secrets["api"]["EMAIL"]
+API_PASSWORD = st.secrets["api"]["PASSWORD"]
 
 def get_api_token(email=None, password=None):
     if email and password:
