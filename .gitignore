@@ -19,3 +19,5 @@ user.txt
 appointments.json
 test.py
 api.py
+
+.streamlit/
