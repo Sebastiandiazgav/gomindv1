@@ -18,6 +18,14 @@ API_BASE_URL = st.secrets["api"]["BASE_URL"]
 API_EMAIL = st.secrets["api"]["EMAIL"]
 API_PASSWORD = st.secrets["api"]["PASSWORD"]
 
+# Constantes centralizadas
+SPANISH_WEEKDAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes']
+SPANISH_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+API_TIMEOUT = 30
+BEDROCK_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+BEDROCK_MAX_TOKENS = 1000
+
 # Función de análisis de intención con Bedrock
 def analyze_user_intent(user_message, context_stage):
     """
@@ -89,7 +97,7 @@ MESSAGES = {
     'healthy_results': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.",
     'unhealthy_results': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no estan muy elevados, sería recomendable que un médico los revise más a fondo.",
     'appointment_question': "¿Te gustaría que te ayude a agendar una cita para que puedas discutir estos resultados con un profesional?",
-    'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\nCuando quieras agendar otra cita  Solo escribe ejemplo 'nueva cita' y te ayudo inmediatamente.",
+    'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n¿Necesitas agendar otra cita? Solo escribe 'nueva cita' y te ayudo inmediatamente.",
     'appointment_error': "Lo siento, hubo un problema al agendar tu cita (Error {status}). Por favor, intenta nuevamente en unos minutos o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
     'connection_error': "Lo siento, hubo un problema de conexión al procesar tu cita. Por favor, verifica tu conexión a internet e intenta nuevamente, o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
     'clinic_unavailable': "Lo siento, no hay clínicas disponibles en este momento. ¿Te gustaría intentarlo más tarde o tienes alguna otra consulta?",
@@ -102,7 +110,12 @@ MESSAGES = {
     'appointment_general_declined': "Entiendo. Si cambias de opinión y quieres agendar una cita más tarde, solo dímelo. ¿Hay algo más en lo que pueda ayudarte?",
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
-    'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica."
+    'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
+    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\nPor favor, responde con el número de tu opción (1 o 2).",
+    'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
+    'product_selected': "Has seleccionado: **{product_name}**\n\n¡Perfecto! Ahora te ayudo a agendar una cita para este servicio.",
+    'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
+    'invalid_product_option': "Por favor, elige un número válido de la lista de productos."
 }
 
 def get_api_token(email=None, password=None):
@@ -269,22 +282,59 @@ def get_user_results(user_id):
 
 # Funciones utilitarias
 
-def find_text_match(prompt, text_list):
+def find_match(prompt, items, key_func=None):
+    """
+    Función consolidada para encontrar coincidencias en listas
+    
+    Args:
+        prompt: Texto del usuario
+        items: Lista de elementos para buscar
+        key_func: Función para extraer el texto a comparar (opcional)
+    """
     prompt_lower = prompt.lower()
-    for text in text_list:
-        text_parts = [p.lower() for p in text.split()]
-        if any(part in prompt_lower for part in text_parts):
-            return text
+    
+    for item in items:
+        # Determinar el texto a comparar
+        if key_func:
+            text_to_compare = key_func(item)
+        elif isinstance(item, dict) and 'name' in item:
+            text_to_compare = item['name']
+        else:
+            text_to_compare = str(item)
+        
+        # Buscar coincidencias por palabras
+        text_words = text_to_compare.lower().split()
+        if any(word in prompt_lower for word in text_words):
+            return item['name'] if isinstance(item, dict) and 'name' in item else item
+    
     return None
 
-def find_clinic_match(prompt, clinics):
-    prompt_lower = prompt.lower()
-    for clinic in clinics:
-        clinic_name_lower = clinic['name'].lower()
-        clinic_words = clinic_name_lower.split()
-        if any(word in prompt_lower for word in clinic_words):
-            return clinic['name']
-    return None
+def has_user_data():
+    """Verifica si hay datos de usuario disponibles"""
+    return (hasattr(st.session_state, 'user_data') and 
+            st.session_state.user_data and 
+            st.session_state.user_data.get('id'))
+
+def is_authenticated():
+    """Verifica si el usuario está autenticado"""
+    return (hasattr(st.session_state, 'auth_token') and 
+            st.session_state.auth_token)
+
+def get_user_info():
+    """Obtiene información del usuario de manera segura"""
+    if has_user_data():
+        return {
+            'id': st.session_state.user_data.get('id'),
+            'name': st.session_state.user_data.get('name', 'Usuario')
+        }
+    return {'id': None, 'name': 'Usuario'}
+
+def format_spanish_date(date_obj):
+    """Formatea una fecha en español"""
+    day_name = SPANISH_WEEKDAYS[date_obj.weekday()]
+    day_num = date_obj.day
+    month_name = SPANISH_MONTHS[date_obj.month - 1]
+    return f"{day_name} {day_num} de {month_name}"
 
 def handle_appointment_error(error, error_type='general'):
     if error_type == 'clinic_fetch':
@@ -311,20 +361,13 @@ def validate_appointment_data():
 def generate_medical_response(results, issues, user_name="Usuario"):
     if not issues:
         results_text = "\n".join([f"- {k}: {v}" for k, v in results.items()])
-        response = f"¡Hola, {user_name}! Gracias por compartir tus resultados conmigo. Me da gusto poder revisarlos contigo.\n\n"
+        response = f"{user_name}! Gracias por compartir tus resultados conmigo. Me da gusto poder revisarlos contigo.\n\n"
         response += MESSAGES['healthy_results'].format(results=results_text)
         return response, 'completed'
     else:
         issues_text = "\n".join([f"- {issue}" for issue in issues])
         response = f"¡Hola, {user_name}! Gracias por compartir tus resultados conmigo. "
         response += MESSAGES['unhealthy_results'].format(issues=issues_text)
-        
-        if st.session_state.company_products:
-            relevant_products = get_relevant_products(issues)
-            if relevant_products:
-                response += f"\n\n**Productos recomendados de tu compañía:**\n\n"
-                for product in relevant_products[:2]:
-                    response += f"- {product.get('name', 'Producto')}\n"
         
         response += f"\n\n{MESSAGES['appointment_question']}"
         return response, 'analyzing'
@@ -387,7 +430,7 @@ def handle_clinic_selection(prompt):
         if 0 <= clinic_num < len(clinics):
             selected_clinic = clinics[clinic_num]['name']
     except ValueError:
-        selected_clinic = find_clinic_match(prompt, clinics)
+        selected_clinic = find_match(prompt, clinics)
     
     if not selected_clinic:
         return MESSAGES['clinic_not_recognized'], 'selecting_clinic'
@@ -410,7 +453,7 @@ def handle_day_selection(prompt):
         if 0 <= day_num < len(next_days):
             selected_day = next_days[day_num]
     except ValueError:
-        selected_day = find_text_match(prompt, next_days)
+        selected_day = find_match(prompt, next_days)
     
     if not selected_day:
         return MESSAGES['day_not_recognized'], 'scheduling'
@@ -492,18 +535,149 @@ def handle_appointment_confirmation():
         return handle_appointment_error(e, 'general')
 
 def get_next_business_days(n=3):
+    """
+    Obtiene los próximos días hábiles excluyendo fines de semana
+    """
     days = []
     current = datetime.now()
-    weekdays = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes']
-    months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
     while len(days) < n:
         current += timedelta(days=1)
+
+        # Verificar que sea día de semana (lunes a viernes)
         if current.weekday() < 5:
-            day_name = weekdays[current.weekday()]
-            day_num = current.day
-            month_name = months[current.month - 1]
-            days.append(f"{day_name} {day_num} de {month_name}")
+            days.append(format_spanish_date(current))
+
     return days
+
+def get_holiday_info(date_obj):
+    """
+    Función placeholder para información de festivos (deshabilitada)
+    """
+    return False, None
+
+def get_conversation_context():
+    """
+    Genera un resumen del contexto conversacional actual
+    """
+    context_parts = []
+    
+    # Información del usuario
+    if has_user_data():
+        user_info = get_user_info()
+        context_parts.append(f"Usuario: {user_info['name']}")
+    
+    # Estado actual
+    current_stage = getattr(st.session_state, 'stage', 'inicio')
+    stage_descriptions = {
+        'main_menu': 'en menú principal',
+        'selecting_product': 'seleccionando producto',
+        'analyzing': 'revisando si quiere agendar cita',
+        'selecting_clinic': 'eligiendo clínica',
+        'scheduling': 'eligiendo día',
+        'selecting_time': 'eligiendo hora',
+        'confirming': 'confirmando cita',
+        'completed': 'proceso completado'
+    }
+    stage_desc = stage_descriptions.get(current_stage, current_stage)
+    context_parts.append(f"Estado: {stage_desc}")
+    
+    # Historial reciente (últimos 3 mensajes)
+    if hasattr(st.session_state, 'messages') and st.session_state.messages:
+        recent_messages = st.session_state.messages[-3:]
+        for msg in recent_messages:
+            role = "Usuario" if msg['role'] == 'user' else "Bianca"
+            content = msg['content'][:60] + "..." if len(msg['content']) > 60 else msg['content']
+            context_parts.append(f"{role}: {content}")
+    
+    return " | ".join(context_parts)
+
+def analyze_farewell_intent(message):
+    """
+    Analiza si el usuario se está despidiendo usando Bedrock
+    """
+    try:
+        conversation_context = get_conversation_context()
+        
+        prompt = f"""Analiza si el usuario se está despidiendo o finalizando la conversación.
+
+Contexto de la conversación: {conversation_context}
+Mensaje del usuario: "{message}"
+
+Determina la intención:
+- DESPEDIDA: Se está despidiendo claramente (gracias, adiós, hasta luego, nos vemos, chao, bye, eso es todo, ya terminé)
+- CONTINUANDO: Quiere seguir conversando o hacer algo más
+- AMBIGUO: No está claro
+
+Responde ÚNICAMENTE con: DESPEDIDA, CONTINUANDO, o AMBIGUO"""
+
+        response = bedrock_client.invoke_model(
+            modelId="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 10,
+                "messages": [{"role": "user", "content": prompt}]
+            })
+        )
+        
+        response_body = json.loads(response['body'].read())
+        intent = response_body['content'][0]['text'].strip().upper()
+        
+        return intent if intent in ['DESPEDIDA', 'CONTINUANDO', 'AMBIGUO'] else 'CONTINUANDO'
+        
+    except Exception as e:
+        # Fallback simple si Bedrock falla
+        farewell_keywords = ['gracias', 'adiós', 'hasta luego', 'nos vemos', 'chao', 'bye', 
+                           'eso es todo', 'ya terminé', 'ya está', 'perfecto gracias']
+        message_lower = message.lower()
+        if any(keyword in message_lower for keyword in farewell_keywords):
+            return 'DESPEDIDA'
+        return 'CONTINUANDO'
+
+def generate_farewell_response():
+    """
+    Genera una respuesta de despedida contextual
+    """
+    user_info = get_user_info()
+    user_name = user_info['name'] if user_info['name'] != 'Usuario' else ""
+    
+    # Verificar si hay una cita agendada reciente
+    has_appointment = False
+    appointment_info = ""
+    
+    if hasattr(st.session_state, 'selected_clinic') and st.session_state.selected_clinic:
+        has_appointment = True
+        clinic = getattr(st.session_state, 'selected_clinic', '')
+        day = getattr(st.session_state, 'selected_day', '')
+        time = getattr(st.session_state, 'selected_time', '')
+        if clinic and day and time:
+            appointment_info = f" para tu cita del {day} a las {time} en {clinic}"
+    
+    # Generar respuesta personalizada
+    if has_appointment and appointment_info:
+        if user_name:
+            return f"¡Perfecto, {user_name}! Me alegra haber podido ayudarte{appointment_info}. ¡Que tengas un excelente día y nos vemos pronto!"
+        else:
+            return f"¡Perfecto! Me alegra haber podido ayudarte{appointment_info}. ¡Que tengas un excelente día y nos vemos pronto!"
+    else:
+        if user_name:
+            return f"¡Gracias por usar nuestros servicios, {user_name}! Espero haber podido ayudarte. ¡Que tengas un excelente día!"
+        else:
+            return "¡Gracias por usar nuestros servicios! Espero haber podido ayudarte. ¡Que tengas un excelente día!"
+
+def handle_contextual_conversation(prompt):
+    """
+    Maneja conversación con contexto completo y detección de despedidas
+    """
+    # Detectar si es una despedida
+    farewell_intent = analyze_farewell_intent(prompt)
+    
+    if farewell_intent == 'DESPEDIDA':
+        return generate_farewell_response(), 'conversation_ended'
+    
+    # Si no es despedida, continuar con conversación contextual
+    conversation_context = get_conversation_context()
+    return invoke_bedrock_smart(prompt, 'contextual', conversation_context), 'completed'
 
 def handle_medical_input(prompt):
     if prompt.strip().isdigit() and len(prompt.strip()) > 0:
@@ -609,6 +783,69 @@ def clear_user_session_data():
         if hasattr(st.session_state, key):
             delattr(st.session_state, key)
 
+def handle_main_menu_selection(prompt):
+    """Maneja la selección del menú principal después del login"""
+    user_choice = prompt.strip()
+    
+    if user_choice == '1':
+        # Opción 1: Mostrar productos
+        return show_products_menu()
+    elif user_choice == '2':
+        # Opción 2: Análisis médico (flujo actual)
+        return start_medical_analysis()
+    else:
+        return MESSAGES['invalid_menu_option'], 'main_menu'
+
+def show_products_menu():
+    """Muestra el menú de productos disponibles"""
+    if not st.session_state.company_products:
+        return "No hay productos disponibles en este momento. ¿Te gustaría hacer un análisis médico en su lugar?", 'main_menu'
+    
+    products_list = ""
+    for i, product in enumerate(st.session_state.company_products):
+        name = product.get('name', 'Producto sin nombre')
+        products_list += f"{i+1}. {name}\n"
+    
+    response = MESSAGES['products_menu'].format(products_list=products_list)
+    return response, 'selecting_product'
+
+def handle_product_selection(prompt):
+    """Maneja la selección de un producto específico"""
+    try:
+        product_num = int(prompt.strip()) - 1
+        if 0 <= product_num < len(st.session_state.company_products):
+            selected_product = st.session_state.company_products[product_num]
+            product_name = selected_product.get('name', 'Producto seleccionado')
+            
+            # Guardar el producto seleccionado para referencia
+            st.session_state.selected_product = selected_product
+            
+            response = MESSAGES['product_selected'].format(product_name=product_name)
+            
+            # Ir directamente al agendamiento de cita
+            appointment_response, appointment_stage = handle_appointment_request()
+            return f"{response}\n\n{appointment_response}", appointment_stage
+        else:
+            return MESSAGES['invalid_product_option'], 'selecting_product'
+    except ValueError:
+        return MESSAGES['invalid_product_option'], 'selecting_product'
+
+def start_medical_analysis():
+    """Inicia el flujo de análisis médico (opción 2)"""
+    # Verificar si ya tenemos datos del usuario autenticado
+    if (hasattr(st.session_state, 'user_data') and 
+        st.session_state.user_data and 
+        st.session_state.user_data.get('id')):
+        
+        # Usar datos existentes - análisis automático
+        user_id = st.session_state.user_data['id']
+        user_name = st.session_state.user_data.get('name', 'Usuario')
+        
+        return process_medical_results(user_id, user_name)
+    else:
+        # Fallback: pedir ID si no tenemos datos
+        return "Para analizar tus resultados médicos, por favor ingresa tu número de identificación:", 'authenticated'
+
 def handle_authentication_flow(stage, prompt):
     if stage == 'waiting_email':
         email = prompt.strip().lower()
@@ -636,42 +873,26 @@ def handle_authentication_flow(stage, prompt):
                     
                     patient_id = data.get('user', {}).get('user_id')
                     
-                    if patient_id:
-                        products = data.get('company', {}).get('products', [])
+                    # Obtener productos y datos del usuario
+                    try:
+                        products = get_company_products(company_id)
                         st.session_state.company_products = products
-                        
-                        try:
-                            user_name = data.get('user', {}).get('name', 'Usuario')
-                            medical_response, new_stage = process_medical_results(patient_id, user_name)
-                            
-                            response_text = f"¡Autenticación exitosa! Bienvenido/a {user_name}.\n\n"
-                            if st.session_state.company_products:
-                                response_text += f"**Productos de salud disponibles:**\n\n"
-                                for product in st.session_state.company_products:
-                                    response_text += f"- {product.get('name')}\n"
-                                response_text += f"\n"
-                            
-                            response_text += medical_response.split("¡Hola, " + user_name + "! Gracias por compartir tus resultados conmigo. Me da gusto poder revisarlos contigo.\n\n", 1)[-1]
-                            return response_text, new_stage
-                            
-                        except Exception as e:
-                            response_text = f"¡Autenticación exitosa! Bienvenido/a. Sin embargo, no pude obtener tus resultados médicos automáticamente. ¿Puedes proporcionarme tu número de identificación para acceder a ellos?"
-                            return response_text, 'authenticated'
-                    else:
-                        try:
-                            products = get_company_products(company_id)
-                            st.session_state.company_products = products
-                            new_stage = 'showing_products'
-                        except:
-                            st.session_state.company_products = []
-                            new_stage = 'authenticated'
-                        
-                        response_text = f"¡Autenticación exitosa! Bienvenido/a.\n\n"
-                        if st.session_state.company_products:
-                            response_text += f"Tu compañía tiene disponibles {len(st.session_state.company_products)} productos de salud.\n\n"
-                        
-                        response_text += "Ingresa tu número de identificación para acceder a tus resultados médicos:"
-                        return response_text, new_stage
+                    except:
+                        products = data.get('company', {}).get('products', [])
+                        st.session_state.company_products = products if products else []
+                    
+                    user_name = data.get('user', {}).get('name', 'Usuario')
+                    patient_id = data.get('user', {}).get('user_id')
+                    
+                    # Guardar datos del usuario para uso posterior
+                    st.session_state.user_data = {
+                        'id': patient_id,
+                        'name': user_name
+                    }
+                    
+                    # Mostrar menú principal en lugar del flujo automático
+                    response_text = MESSAGES['login_success_menu'].format(user_name=user_name)
+                    return response_text, 'main_menu'
                 else:
                     return "Error en la autenticación. Credenciales inválidas. Por favor, intenta nuevamente con tu correo electrónico.", 'waiting_email'
             else:
@@ -731,6 +952,14 @@ def dispatch_conversation_stage(stage, prompt):
         else:
             return None, 'authenticated'
     
+    # Handle main menu selection
+    if stage == 'main_menu':
+        return handle_main_menu_selection(prompt)
+    
+    # Handle product selection
+    if stage == 'selecting_product':
+        return handle_product_selection(prompt)
+    
     # Handle new appointment user selection
     if stage == 'selecting_user_for_new_appointment':
         return handle_user_selection_for_new_appointment(prompt)
@@ -755,13 +984,18 @@ def dispatch_conversation_stage(stage, prompt):
             if intent in ['NUEVA_CITA', 'POSITIVA']:
                 return handle_new_appointment_request(prompt)
             
-            return invoke_bedrock(BIANCA_PROMPT, prompt, st.session_state.context), 'completed'
+            # Usar conversación contextual mejorada
+            return handle_contextual_conversation(prompt)
+        
+        if stage == 'conversation_ended':
+            # Usuario ya se despidió, mantener conversación cerrada pero amigable
+            return "¡Que tengas un excelente día! Si necesitas algo más, estaré aquí para ayudarte.", 'conversation_ended'
         
         if stage == 'waiting_json':
             return "El formato JSON no es válido. Por favor, comparte tus resultados en formato JSON válido, ejemplo: {\"Glicemia Basal\": 90, \"Hemoglobina\": 13}", 'waiting_json'
     
-    # Default fallback - use Bedrock for general conversation
-    return invoke_bedrock(BIANCA_PROMPT, prompt, st.session_state.context), stage
+    # Default fallback - use contextual conversation
+    return handle_contextual_conversation(prompt)
 
 # Rangos de referencia médica
 RANGES = {
@@ -821,20 +1055,43 @@ Eres "Bianca", asistente virtual de GoMind para salud física y emocional. Ayuda
 ### Contexto: Mantén coherencia conversacional. Si usuario dice "no" → responde empáticamente sin reiniciar. Para consultas generales: redirige amablemente a resultados, citas o productos.
 """
 
-def invoke_bedrock(prompt, user_message, context=""):
-    full_prompt = f"{BIANCA_PROMPT}\n\nContexto de conversación: {context}\n\nUsuario: {user_message}\n\nBianca:"
+def invoke_bedrock_smart(user_message, context_type='general', context_data=""):
+    """
+    Función consolidada para invocar Bedrock con diferentes tipos de contexto
+    
+    Args:
+        user_message: Mensaje del usuario
+        context_type: 'general', 'contextual', 'simple'
+        context_data: Datos de contexto adicionales
+    """
+    if context_type == 'contextual':
+        # Usar contexto conversacional completo
+        conversation_context = context_data or get_conversation_context()
+        full_prompt = f"""{BIANCA_PROMPT}
+
+CONTEXTO CONVERSACIONAL ACTUAL:
+{conversation_context}
+
+INSTRUCCIONES ADICIONALES:
+- Responde de manera coherente con el contexto de la conversación
+- Si el usuario ya completó un proceso, reconócelo en tu respuesta
+- Mantén un tono natural y contextual
+- Si detectas que el usuario podría estar finalizando, ofrece ayuda adicional de manera sutil
+
+Usuario: {user_message}
+
+Bianca:"""
+    else:
+        # Formato simple/general
+        full_prompt = f"{BIANCA_PROMPT}\n\nContexto de conversación: {context_data}\n\nUsuario: {user_message}\n\nBianca:"
+
     try:
         response = bedrock_client.invoke_model(
-            modelId='anthropic.claude-3-5-sonnet-20240620-v1:0',
+            modelId=BEDROCK_MODEL_ID,
             body=json.dumps({
                 "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 1000,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": full_prompt
-                    }
-                ]
+                "max_tokens": BEDROCK_MAX_TOKENS,
+                "messages": [{"role": "user", "content": full_prompt}]
             })
         )
         result = json.loads(response['body'].read())
