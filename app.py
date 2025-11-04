@@ -413,7 +413,7 @@ def handle_appointment_request():
             
         st.session_state.clinics = clinics
         
-        response = f"¡Perfecto! Te ayudo a agendar tu cita. Tenemos estas clínicas disponibles:\n\n"
+        response = f"Tenemos estas clínicas disponibles:\n\n"
         for i, clinic in enumerate(clinics):
             response += f"{i+1}. {clinic['name']}\n"
         response += "\n¿En cuál clínica prefieres agendar tu cita? Responde con el número de tu opción"
