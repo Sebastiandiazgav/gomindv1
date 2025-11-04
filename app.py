@@ -510,10 +510,10 @@ def handle_time_selection(prompt):
 def handle_appointment_confirmation():
     try:
         validate_appointment_data()
-        
+
         api_appointment_data = prepare_api_appointment_data()
         api_response = send_appointment_to_api(api_appointment_data)
-        
+
         if api_response.status_code in [200, 201]:
             return MESSAGES['appointment_success'].format(
                 day=st.session_state.selected_day,
@@ -522,7 +522,7 @@ def handle_appointment_confirmation():
             ), 'completed'
         else:
             return handle_appointment_error(api_response, 'api_error')
-            
+
     except requests.exceptions.RequestException:
         return handle_appointment_error(None, 'api_connection')
     except ValueError as e:
@@ -725,6 +725,9 @@ def handle_appointment_flow(stage, prompt):
         elif intent == 'AMBIGUA':
             return "¿Confirmas tu cita? Por favor responde sí o no.", 'confirming'
         else:
+            # Limpiar datos de cita no confirmada
+            if hasattr(st.session_state, 'selected_time'):
+                del st.session_state.selected_time
             return MESSAGES['appointment_declined'], 'completed'
     
     return None, None
