@@ -111,7 +111,7 @@ MESSAGES = {
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
-    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\nResponde con el número de tu opción.",
+    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\n Que servicio de salud desea utilizar? Responde con el número de tu opción.",
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
     'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
