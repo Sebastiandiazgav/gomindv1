@@ -97,7 +97,7 @@ MESSAGES = {
     'healthy_results': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.",
     'unhealthy_results': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no estan muy elevados, sería recomendable que un médico los revise más a fondo.",
     'appointment_question': "¿Te gustaría que te ayude a agendar una cita para que puedas discutir estos resultados con un profesional?",
-    'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n para una nueva cita solo escribe 'nueva cita' y te ayudo inmediatamente.",
+    'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n Para una nueva cita solo escribe 'nueva cita' y te ayudo inmediatamente.",
     'appointment_error': "Lo siento, hubo un problema al agendar tu cita (Error {status}). Por favor, intenta nuevamente en unos minutos o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
     'connection_error': "Lo siento, hubo un problema de conexión al procesar tu cita. Por favor, verifica tu conexión a internet e intenta nuevamente, o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
     'clinic_unavailable': "Lo siento, no hay clínicas disponibles en este momento. ¿Te gustaría intentarlo más tarde o tienes alguna otra consulta?",
@@ -111,7 +111,7 @@ MESSAGES = {
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
-    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\n¿Cual producto te interesa? Responde con el numero de tu opcion.",
+    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\n¿Cual producto te interesa? Responde con el número de tu opción.",
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
     'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
@@ -416,7 +416,7 @@ def handle_appointment_request():
         response = f"¡Perfecto! Te ayudo a agendar tu cita. Tenemos estas clínicas disponibles:\n\n"
         for i, clinic in enumerate(clinics):
             response += f"{i+1}. {clinic['name']}\n"
-        response += "\n¿En cuál clínica prefieres agendar tu cita? Responde con el numero de tu opcion"
+        response += "\n¿En cuál clínica prefieres agendar tu cita? Responde con el número de tu opción"
         return response, 'selecting_clinic'
     except Exception as e:
         return handle_appointment_error(e, 'clinic_fetch')
@@ -461,7 +461,7 @@ def handle_day_selection(prompt):
     # Crear lista de horarios con números
     hours = [f"{h}:00" for h in range(9, 19)]
     hours_str = "\n".join(f"{i+1}. {h}" for i, h in enumerate(hours))
-    response = f"Genial, el {selected_day} tengo disponibilidad en los siguientes horarios:\n\n{hours_str}\n\n¿A qué hora te gustaría agendar? Por favor, responde con el número de tu opción (1-{len(hours)})."
+    response = f"Genial, el {selected_day} tengo disponibilidad en los siguientes horarios:\n\n{hours_str}\n\n¿A qué hora te gustaría agendar? Por favor, Responde con el número de tu opción (1-{len(hours)})."
     
     # Guardar tanto el día como los horarios disponibles para referencia
     st.session_state.selected_day = selected_day
@@ -750,7 +750,7 @@ def handle_new_appointment_request(prompt):
 1. Mismo usuario ({user_name})
 2. Cambiar de usuario
 
-Por favor, responde con el numero de tu opcion."""
+Por favor, responde con el número de tu opción."""
         
         return response, 'selecting_user_for_new_appointment'
     else:
