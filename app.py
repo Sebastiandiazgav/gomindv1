@@ -97,7 +97,7 @@ MESSAGES = {
     'healthy_results': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.",
     'unhealthy_results': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no estan muy elevados, sería recomendable que un médico los revise más a fondo.",
     'appointment_question': "¿Te gustaría que te ayude a agendar una cita para que puedas discutir estos resultados con un profesional?",
-    'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n¿Necesitas agendar otra cita? Solo escribe 'nueva cita' y te ayudo inmediatamente.",
+    'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n para una nueva cita solo escribe 'nueva cita' y te ayudo inmediatamente.",
     'appointment_error': "Lo siento, hubo un problema al agendar tu cita (Error {status}). Por favor, intenta nuevamente en unos minutos o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
     'connection_error': "Lo siento, hubo un problema de conexión al procesar tu cita. Por favor, verifica tu conexión a internet e intenta nuevamente, o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
     'clinic_unavailable': "Lo siento, no hay clínicas disponibles en este momento. ¿Te gustaría intentarlo más tarde o tienes alguna otra consulta?",
@@ -111,9 +111,9 @@ MESSAGES = {
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
-    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\nPor favor, responde con el número de tu opción (1 o 2).",
+    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\n¿Cual producto te interesa? Responde con el numero de tu opcion.",
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
-    'product_selected': "Has seleccionado: **{product_name}**\n\n¡Perfecto! Ahora te ayudo a agendar una cita para este servicio.",
+    'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
     'invalid_product_option': "Por favor, elige un número válido de la lista de productos."
 }
@@ -416,7 +416,7 @@ def handle_appointment_request():
         response = f"¡Perfecto! Te ayudo a agendar tu cita. Tenemos estas clínicas disponibles:\n\n"
         for i, clinic in enumerate(clinics):
             response += f"{i+1}. {clinic['name']}\n"
-        response += "\n¿En cuál clínica prefieres agendar tu cita? (di el número o el nombre de la clínica)"
+        response += "\n¿En cuál clínica prefieres agendar tu cita? Responde con el numero de tu opcion"
         return response, 'selecting_clinic'
     except Exception as e:
         return handle_appointment_error(e, 'clinic_fetch')
@@ -750,7 +750,7 @@ def handle_new_appointment_request(prompt):
 1. Mismo usuario ({user_name})
 2. Cambiar de usuario
 
-Por favor, responde con el número de tu opción (1 o 2)."""
+Por favor, responde con el numero de tu opcion."""
         
         return response, 'selecting_user_for_new_appointment'
     else:
@@ -983,7 +983,14 @@ def dispatch_conversation_stage(stage, prompt):
             intent = analyze_user_intent(prompt, 'completed')
             if intent in ['NUEVA_CITA', 'POSITIVA']:
                 return handle_new_appointment_request(prompt)
-            
+            elif intent == 'NEGATIVA':
+                # Si dice "no" después de cita confirmada, interpretar como despedida
+                farewell_intent = analyze_farewell_intent(prompt)
+                if farewell_intent == 'DESPEDIDA':
+                    return generate_farewell_response(), 'conversation_ended'
+                else:
+                    return generate_farewell_response(), 'conversation_ended'
+
             # Usar conversación contextual mejorada
             return handle_contextual_conversation(prompt)
         
@@ -1112,7 +1119,7 @@ if 'messages' not in st.session_state:
     # Agregar mensaje de bienvenida inicial
     welcome_message = """👋 ¡Hola! Soy **Bianca**, tu asistente de salud de GoMind.
 
-Para comenzar, por favor ingresa tu **correo electrónico** para verificar tu identidad y acceder a tus resultados médicos."""
+Para comenzar, por favor ingresa tu **correo electrónico** para verificar tu identidad."""
     st.session_state.messages.append({"role": "assistant", "content": welcome_message})
 if 'context' not in st.session_state:
     st.session_state.context = ""
