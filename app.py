@@ -366,7 +366,7 @@ def generate_medical_response(results, issues, user_name="Usuario"):
         return response, 'completed'
     else:
         issues_text = "\n".join([f"- {issue}" for issue in issues])
-        response = f"¡Hola, {user_name}! Gracias por compartir tus resultados conmigo. "
+        response = f"{user_name}! Gracias por compartir tus resultados conmigo. "
         response += MESSAGES['unhealthy_results'].format(issues=issues_text)
         
         response += f"\n\n{MESSAGES['appointment_question']}"
