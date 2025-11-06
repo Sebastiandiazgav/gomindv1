@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import boto3
 import streamlit as st
 from datetime import datetime, timedelta
@@ -281,6 +282,11 @@ def get_user_results(user_id):
 # Users database removed - not used in current implementation
 
 # Funciones utilitarias
+
+def is_valid_email(email):
+    """Valida formato básico de email usando regex"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email)) and ' ' not in email
 
 def find_match(prompt, items, key_func=None):
     """
@@ -852,7 +858,7 @@ def start_medical_analysis():
 def handle_authentication_flow(stage, prompt):
     if stage == 'waiting_email':
         email = prompt.strip().lower()
-        if '@' in email and '.' in email:
+        if is_valid_email(email):
             st.session_state.user_email = email
             return "Gracias. Ahora, por favor ingresa tu contraseña para verificar tu identidad.", 'waiting_password'
         else:
