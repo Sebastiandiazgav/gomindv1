@@ -1202,6 +1202,8 @@ if 'auth_token' not in st.session_state:
     st.session_state.auth_token = None
 if 'last_processed_input' not in st.session_state:
     st.session_state.last_processed_input = ""
+if 'last_input_time' not in st.session_state:
+    st.session_state.last_input_time = 0
 if 'company_products' not in st.session_state:
     st.session_state.company_products = None
 if 'user_profile' not in st.session_state:
@@ -1212,34 +1214,40 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-def handle_chat_input():
-    """Maneja el input del chat usando callback pattern para evitar doble entrada"""
-    if st.session_state.get("chat_widget"):
-        prompt = st.session_state.chat_widget
+# Unified conversation flow using dispatcher pattern
+if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
+    # Prevenir procesamiento duplicado con verificación mejorada y timestamp
+    import time
+    current_time = time.time()
+    
+    if 'last_processed_input' not in st.session_state:
+        st.session_state.last_processed_input = ""
+    if 'last_input_time' not in st.session_state:
+        st.session_state.last_input_time = 0
+    
+    # Solo procesar si es diferente al último input O ha pasado suficiente tiempo (debounce)
+    time_diff = current_time - st.session_state.last_input_time
+    is_different_input = prompt != st.session_state.last_processed_input
+    is_debounced = time_diff > 1.0  # 1 segundo de debounce
+    
+    if prompt and prompt.strip() and (is_different_input or is_debounced):
+        st.session_state.last_processed_input = prompt
+        st.session_state.last_input_time = current_time
         
-        # Verificar que no sea un input duplicado
-        if prompt and prompt.strip() and prompt != st.session_state.get('last_processed_input', ''):
-            st.session_state.last_processed_input = prompt
-            
-            # Handle password masking for display
-            display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
-            
-            # Agregar mensaje del usuario
-            st.session_state.messages.append({"role": "user", "content": display_prompt})
-            
-            # Procesar el input inmediatamente
-            response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
-            
-            # Update stage if it changed
-            if new_stage != st.session_state.stage:
-                st.session_state.stage = new_stage
+        # Handle password masking for display
+        display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
+        
+        st.session_state.messages.append({"role": "user", "content": display_prompt})
+        with st.chat_message("user"):
+            st.markdown(display_prompt)
 
-            # Agregar respuesta del asistente
-            st.session_state.messages.append({"role": "assistant", "content": response})
+        # Use dispatcher pattern to handle all conversation stages
+        response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
+        
+        # Update stage if it changed
+        if new_stage != st.session_state.stage:
+            st.session_state.stage = new_stage
 
-# Chat input con callback pattern
-st.chat_input(
-    get_input_placeholder(st.session_state.stage), 
-    key="chat_widget",
-    on_change=handle_chat_input
-)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        with st.chat_message("assistant"):
+            st.markdown(response)
