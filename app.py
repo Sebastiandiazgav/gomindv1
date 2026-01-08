@@ -117,7 +117,7 @@ MESSAGES = {
     'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
     'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
-    'verification_code_sent': "Autenticación básica exitosa. Para acceder a tus datos médicos de forma segura, he enviado un código de verificación a tu correo.\n\nPor favor, ingresa el código que recibiste:",
+    'verification_code_sent': "He enviado un código de verificación a tu correo. Ingrésalo:",
     'code_authentication_success': "¡Perfecto! Verificación completada exitosamente.",
     'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
     'code_error': "Error procesando el código. Por favor, intenta nuevamente:"
@@ -129,7 +129,7 @@ def get_api_token(email=None, password=None):
     else:
         payload = {"email": API_EMAIL, "password": API_PASSWORD}
 
-    url = f"{API_BASE_URL}/api/auth/login"
+    url = f"{API_BASE_URL}/api/auth/login" 
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         data = response.json()
@@ -869,6 +869,9 @@ def handle_product_selection(prompt):
 
 def start_medical_analysis():
     """Inicia el flujo de análisis médico (opción 2)"""
+    # Debug: mostrar qué datos tenemos
+    print(f"DEBUG - user_data: {st.session_state.get('user_data')}")
+    
     # Verificar si ya tenemos datos del usuario autenticado
     if (hasattr(st.session_state, 'user_data') and 
         st.session_state.user_data and 
@@ -878,8 +881,15 @@ def start_medical_analysis():
         user_id = st.session_state.user_data['id']
         user_name = st.session_state.user_data.get('name', 'Usuario')
         
+        print(f"DEBUG - Using user_id: {user_id}, user_name: {user_name}")
         return process_medical_results(user_id, user_name)
     else:
+        # Debug: mostrar por qué no se encontraron datos
+        print(f"DEBUG - No user data found. user_data exists: {hasattr(st.session_state, 'user_data')}")
+        if hasattr(st.session_state, 'user_data'):
+            print(f"DEBUG - user_data content: {st.session_state.user_data}")
+            print(f"DEBUG - user_data has id: {st.session_state.user_data.get('id') if st.session_state.user_data else 'N/A'}")
+        
         # Fallback: pedir ID si no tenemos datos
         return "Para analizar tus resultados médicos, por favor ingresa tu número de identificación:", 'authenticated'
 
@@ -933,7 +943,13 @@ def handle_authentication_flow(stage, prompt):
             # Guardar token completo y datos de usuario
             st.session_state.auth_token = auth_data['token']
             st.session_state.company_id = auth_data['company_id']
-            st.session_state.user_data = auth_data['user_data']
+            
+            # Asegurar estructura correcta de user_data
+            user_data = auth_data['user_data']
+            st.session_state.user_data = {
+                'id': user_data.get('user_id'),  # Usar user_id del API
+                'name': user_data.get('name', 'Usuario')
+            }
             
             # Obtener productos de la empresa
             try:
