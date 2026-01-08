@@ -943,6 +943,10 @@ def handle_authentication_flow(stage, prompt):
             # Enviar código de verificación directamente después del email
             try:
                 send_verification_code(email)
+                
+                # Configurar estabilización para el código de verificación
+                st.session_state.widget_ready = False
+                
                 return MESSAGES['verification_code_sent'], 'waiting_verification_code'
             except Exception as e:
                 return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
@@ -950,6 +954,12 @@ def handle_authentication_flow(stage, prompt):
             return "El dato ingresado no parece ser válido. Por favor, verifica la información.", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
+        # Verificar si el widget está listo para procesar
+        if not st.session_state.get('widget_ready', False):
+            st.session_state.widget_ready = True
+            # En la primera entrada después de transición, ignorar y esperar la siguiente
+            return "Por favor, ingresa el código de verificación que recibiste:", 'waiting_verification_code'
+        
         verification_code = prompt.strip()
         
         try:
