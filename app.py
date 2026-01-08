@@ -943,10 +943,6 @@ def handle_authentication_flow(stage, prompt):
             # Enviar código de verificación directamente después del email
             try:
                 send_verification_code(email)
-                
-                # Configurar estabilización para el código de verificación
-                st.session_state.widget_ready = False
-                
                 return MESSAGES['verification_code_sent'], 'waiting_verification_code'
             except Exception as e:
                 return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
@@ -956,19 +952,11 @@ def handle_authentication_flow(stage, prompt):
     elif stage == 'waiting_verification_code':
         # DEBUG: Mostrar información completa
         st.write("🔍 **DEBUG - Código de Verificación**")
-        st.write(f"Widget Ready: {st.session_state.get('widget_ready', 'No definido')}")
         st.write(f"Email: {st.session_state.get('user_email', 'No definido')}")
         st.write(f"Código ingresado: '{prompt.strip()}'")
         st.write(f"Longitud código: {len(prompt.strip())}")
         
-        # Verificar si el widget está listo para procesar
-        if not st.session_state.get('widget_ready', False):
-            st.session_state.widget_ready = True
-            st.write("⚠️ Primera entrada - ignorando por estabilización (SILENCIOSA)")
-            # En la primera entrada después de transición, ignorar SILENCIOSAMENTE
-            return None, 'waiting_verification_code'
-        
-        st.write("✅ Procesando código de verificación...")
+        st.write("✅ Procesando código de verificación directamente...")
         verification_code = prompt.strip()
         
         try:
@@ -1068,13 +1056,7 @@ def dispatch_conversation_stage(stage, prompt):
         st.write(f"🔄 Response del handler: {response[:50] if response else 'None'}...")
         st.write(f"🔄 New stage del handler: {new_stage}")
         
-        if response is not None:
-            st.write("✅ Devolviendo response normal")
-            return response, new_stage
-        elif new_stage is not None:
-            # Caso especial: estabilización silenciosa (response=None pero new_stage definido)
-            st.write("⚠️ Estabilización silenciosa - devolviendo string vacío")
-            return "", new_stage
+        return response, new_stage
     
     # Handle product-related queries
     if stage == 'showing_products':
@@ -1314,10 +1296,10 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
             st.session_state.stage = new_stage
 
         # Solo agregar mensaje si hay respuesta
-        if response and response.strip():
+        if response:
             st.write("✅ Agregando respuesta al chat")
             st.session_state.messages.append({"role": "assistant", "content": response})
             with st.chat_message("assistant"):
                 st.markdown(response)
         else:
-            st.write("⚠️ No hay respuesta para mostrar (estabilización silenciosa)")
+            st.write("⚠️ No hay respuesta del dispatcher")
