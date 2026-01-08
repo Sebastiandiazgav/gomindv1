@@ -139,43 +139,25 @@ def authenticate_with_code(email, auth_code):
     url = f"{API_BASE_URL}/api/auth/login/wsp"
     payload = {"email": email, "auth_code": int(auth_code)}
     
-    # DEBUG: Mostrar información de la llamada API para validación
-    st.write("🌐 **DEBUG - API Call**")
-    st.write(f"URL: {url}")
-    st.write(f"Email: {email}")
-    st.write(f"Auth Code: {auth_code}")
-    st.write(f"Payload: {payload}")
-    
     response = requests.post(url, json=payload, timeout=30)
-    
-    st.write(f"Status Code: {response.status_code}")
-    st.write(f"Response Text: {response.text[:200]}...")
     
     if response.status_code == 200:
         data = response.json()
         
         # VALIDAR EL CAMPO SUCCESS
         if not data.get('success', True):  # Si success existe y es false
-            st.write(f"❌ API Success: False - {data.get('message', 'Error desconocido')}")
             raise Exception(f"Código inválido: {data.get('message', 'Código de verificación incorrecto')}")
         
         token = data.get('token')
         company_id = data.get('company', {}).get('company_id')
         user_data = data.get('user', {})
         
-        st.write(f"✅ API Success: True")
-        st.write(f"Token obtenido: {'Sí' if token else 'No'}")
-        st.write(f"Company ID: {company_id}")
-        st.write(f"User data keys: {list(user_data.keys()) if user_data else 'None'}")
-        
         # VALIDAR QUE TENGAMOS DATOS NECESARIOS
         if not token or not company_id or not user_data:
-            st.write(f"❌ Datos incompletos - Token: {bool(token)}, Company: {bool(company_id)}, User: {bool(user_data)}")
             raise Exception("Error en autenticación: datos incompletos del servidor")
         
         return {'token': token, 'company_id': company_id, 'user_data': user_data}
     else:
-        st.write(f"❌ Error API: {response.status_code} - {response.text}")
         raise Exception(f"Error autenticando con código: {response.text}")
 
 def extract_parameter(analysis_results):
@@ -303,51 +285,25 @@ def send_appointment_to_api(appointment_api_data):
 
 def get_user_results(user_id):
     token = st.session_state.auth_token
-    # NUEVO ENDPOINT: No necesita user_id en la URL, se obtiene del token
     url = f"{API_BASE_URL}/api/parameters/results-user"
     headers = {"Authorization": f"Bearer {token}"}
     
-    # DEBUG: Mostrar información de la llamada API
-    st.write("🌐 **DEBUG - Get User Results (NUEVO ENDPOINT)**")
-    st.write(f"URL: {url}")
-    st.write(f"User ID (solo para referencia): {user_id}")
-    st.write(f"Token disponible: {'Sí' if token else 'No'}")
-    st.write(f"Headers: {headers}")
-    st.write("ℹ️ El user_id se obtiene automáticamente del token")
-    
     response = requests.get(url, headers=headers)
-    
-    st.write(f"Status Code: {response.status_code}")
-    st.write(f"Response Text: {response.text[:500]}...")
     
     if response.status_code == 200:
         data = response.json()
-        st.write(f"✅ Datos obtenidos exitosamente")
-        st.write(f"Tipo de datos: {type(data)}")
-        st.write(f"Contenido completo: {data}")
-        
         if isinstance(data, list):
-            st.write(f"📊 Es una lista con {len(data)} elementos")
             if len(data) == 0:
-                st.write("❌ Lista vacía - sin resultados")
                 raise Exception("Paciente no identificado o sin resultados disponibles.")
-            
             results = {}
-            for i, item in enumerate(data):
-                st.write(f"📋 Procesando item {i+1}: {item}")
+            for item in data:
                 param = extract_parameter(item['analysis_results'])
                 value = item['value']
                 results[param] = value
-                st.write(f"   → {param}: {value}")
-            
-            st.write(f"✅ Resultados procesados: {len(results)} parámetros")
-            st.write(f"📊 Resultados finales: {results}")
             return results
         else:
-            st.write(f"✅ Datos directos (no lista): {data}")
             return data
     else:
-        st.write(f"❌ Error API: {response.status_code} - {response.text}")
         raise Exception(f"Error obteniendo resultados: {response.status_code} - {response.text}")
 
 # Users database removed - not used in current implementation
@@ -450,12 +406,6 @@ def generate_medical_response(results, issues, user_name="Usuario"):
         return response, 'analyzing'
 
 def process_medical_results(user_id, user_name="Usuario"):
-    # DEBUG: Información del procesamiento
-    st.write("🔍 **DEBUG - Process Medical Results**")
-    st.write(f"User ID recibido: {user_id}")
-    st.write(f"User Name recibido: {user_name}")
-    st.write(f"Auth token disponible: {'Sí' if st.session_state.get('auth_token') else 'No'}")
-    
     try:
         results = get_user_results(user_id)
         st.session_state.user_data = {"id": user_id, "results": results}
@@ -466,8 +416,6 @@ def process_medical_results(user_id, user_name="Usuario"):
             
     except Exception as e:
         error_msg = str(e)
-        st.write(f"❌ Error en process_medical_results: {error_msg}")
-        
         if "Paciente no identificado" in error_msg:
             return f"Lo siento, no se logró identificar al paciente con el ID {user_id}. Verifica que el número sea correcto o contacta a soporte. ¿Hay algo más en lo que pueda ayudarte?", 'completed'
         else:
@@ -920,11 +868,6 @@ def handle_product_selection(prompt):
 
 def start_medical_analysis():
     """Inicia el flujo de análisis médico (opción 2)"""
-    # DEBUG: Verificar datos disponibles
-    st.write("🔍 **DEBUG - Start Medical Analysis**")
-    st.write(f"User data disponible: {st.session_state.get('user_data', 'None')}")
-    st.write(f"Auth token disponible: {'Sí' if st.session_state.get('auth_token') else 'No'}")
-    
     # Verificar si ya tenemos datos del usuario autenticado
     if (hasattr(st.session_state, 'user_data') and 
         st.session_state.user_data and 
@@ -934,12 +877,9 @@ def start_medical_analysis():
         user_id = st.session_state.user_data['id']
         user_name = st.session_state.user_data.get('name', 'Usuario')
         
-        st.write(f"✅ Usando datos existentes - ID: {user_id}, Nombre: {user_name}")
-        
         return process_medical_results(user_id, user_name)
     else:
         # Fallback: pedir ID si no tenemos datos (no debería pasar)
-        st.write("❌ No hay datos de usuario - solicitando ID manualmente")
         return "Para analizar tus resultados médicos, por favor ingresa tu número de identificación:", 'authenticated'
 
 def handle_authentication_flow(stage, prompt):
@@ -958,21 +898,11 @@ def handle_authentication_flow(stage, prompt):
             return "El dato ingresado no parece ser válido. Por favor, verifica la información.", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
-        # DEBUG: Mostrar información completa
-        st.write("🔍 **DEBUG - Código de Verificación**")
-        st.write(f"Email: {st.session_state.get('user_email', 'No definido')}")
-        st.write(f"Código ingresado: '{prompt.strip()}'")
-        st.write(f"Longitud código: {len(prompt.strip())}")
-        
-        st.write("✅ Procesando código de verificación directamente...")
         verification_code = prompt.strip()
         
         try:
             # Autenticación completa con código
-            st.write(f"🔄 Enviando código '{verification_code}' al API...")
             auth_data = authenticate_with_code(st.session_state.user_email, verification_code)
-            
-            st.write("✅ Respuesta exitosa del API")
             
             # Guardar token completo y datos de usuario
             st.session_state.auth_token = auth_data['token']
@@ -985,9 +915,6 @@ def handle_authentication_flow(stage, prompt):
             user_id = user_data.get('user_id') or user_data.get('id') or user_data.get('userId')
             user_name = user_data.get('name', 'Usuario')
             
-            st.write(f"User ID extraído: {user_id}")
-            st.write(f"User Name extraído: {user_name}")
-            
             st.session_state.user_data = {
                 'id': user_id,
                 'name': user_name
@@ -997,10 +924,8 @@ def handle_authentication_flow(stage, prompt):
             try:
                 products = get_company_products(auth_data['company_id'])
                 st.session_state.company_products = products
-                st.write(f"Productos obtenidos: {len(products) if products else 0}")
             except Exception as prod_error:
                 st.session_state.company_products = []
-                st.write(f"Error obteniendo productos: {prod_error}")
             
             user_name = auth_data['user_data'].get('name', 'Usuario')
             
@@ -1008,19 +933,13 @@ def handle_authentication_flow(stage, prompt):
             success_message = MESSAGES['code_authentication_success']
             menu_message = MESSAGES['login_success_menu'].format(user_name=user_name)
             
-            st.write(f"🔄 Generando respuesta exitosa...")
             return f"{success_message}\n\n{menu_message}", 'main_menu'
             
         except Exception as e:
             error_msg = str(e)
-            st.write(f"❌ Error en autenticación: {error_msg}")
-            st.write(f"Tipo de error: {type(e).__name__}")
-            
             if "código" in error_msg.lower() or "inválido" in error_msg.lower():
-                st.write("🔄 Código inválido - manteniendo en waiting_verification_code")
                 return MESSAGES['invalid_code'], 'waiting_verification_code'
             else:
-                st.write("🔄 Error general - manteniendo en waiting_verification_code")
                 return f"{MESSAGES['code_error']} {error_msg}", 'waiting_verification_code'
     
     elif stage == 'authenticated':
@@ -1051,19 +970,10 @@ def get_input_placeholder(stage):
     return "Escribe tu mensaje aquí..."
 
 def dispatch_conversation_stage(stage, prompt):
-    # DEBUG: Información del dispatcher
-    st.write("🔍 **DEBUG - Dispatcher**")
-    st.write(f"Stage recibido: {stage}")
-    st.write(f"Prompt recibido: '{prompt}'")
-    
     # Handle authentication flow stages
     auth_stages = ['waiting_email', 'waiting_verification_code', 'authenticated']
     if stage in auth_stages:
-        st.write(f"✅ Stage es de autenticación: {stage}")
         response, new_stage = handle_authentication_flow(stage, prompt)
-        st.write(f"🔄 Response del handler: {response[:50] if response else 'None'}...")
-        st.write(f"🔄 New stage del handler: {new_stage}")
-        
         return response, new_stage
     
     # Handle product-related queries
@@ -1275,14 +1185,6 @@ for message in st.session_state.messages:
 
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
-    # DEBUG: Información general
-    st.write("=" * 50)
-    st.write("🔍 **DEBUG GENERAL**")
-    st.write(f"Stage actual: {st.session_state.stage}")
-    st.write(f"Prompt recibido: '{prompt}'")
-    st.write(f"Longitud prompt: {len(prompt)}")
-    st.write("=" * 50)
-    
     # Prevenir procesamiento duplicado básico
     if prompt and prompt.strip():
         # Handle password masking for display
@@ -1295,19 +1197,12 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
         # Use dispatcher pattern to handle all conversation stages
         response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
         
-        st.write(f"🔄 Respuesta del dispatcher: {response[:50] if response else 'None'}...")
-        st.write(f"🔄 Nuevo stage del dispatcher: {new_stage}")
-        
         # Update stage if it changed
         if new_stage != st.session_state.stage:
-            st.write(f"⚠️ CAMBIO DE STAGE: {st.session_state.stage} → {new_stage}")
             st.session_state.stage = new_stage
 
         # Solo agregar mensaje si hay respuesta
         if response:
-            st.write("✅ Agregando respuesta al chat")
             st.session_state.messages.append({"role": "assistant", "content": response})
             with st.chat_message("assistant"):
                 st.markdown(response)
-        else:
-            st.write("⚠️ No hay respuesta del dispatcher")
