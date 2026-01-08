@@ -954,18 +954,29 @@ def handle_authentication_flow(stage, prompt):
             return "El dato ingresado no parece ser válido. Por favor, verifica la información.", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
+        # DEBUG: Mostrar información completa
+        st.write("🔍 **DEBUG - Código de Verificación**")
+        st.write(f"Widget Ready: {st.session_state.get('widget_ready', 'No definido')}")
+        st.write(f"Email: {st.session_state.get('user_email', 'No definido')}")
+        st.write(f"Código ingresado: '{prompt.strip()}'")
+        st.write(f"Longitud código: {len(prompt.strip())}")
+        
         # Verificar si el widget está listo para procesar
         if not st.session_state.get('widget_ready', False):
             st.session_state.widget_ready = True
+            st.write("⚠️ Primera entrada - ignorando por estabilización (SILENCIOSA)")
             # En la primera entrada después de transición, ignorar SILENCIOSAMENTE
-            # No devolver mensaje, solo ignorar esta entrada
             return None, 'waiting_verification_code'
         
+        st.write("✅ Procesando código de verificación...")
         verification_code = prompt.strip()
         
         try:
             # Autenticación completa con código
+            st.write(f"🔄 Enviando código '{verification_code}' al API...")
             auth_data = authenticate_with_code(st.session_state.user_email, verification_code)
+            
+            st.write("✅ Respuesta exitosa del API")
             
             # Guardar token completo y datos de usuario
             st.session_state.auth_token = auth_data['token']
@@ -978,6 +989,9 @@ def handle_authentication_flow(stage, prompt):
             user_id = user_data.get('user_id') or user_data.get('id') or user_data.get('userId')
             user_name = user_data.get('name', 'Usuario')
             
+            st.write(f"User ID extraído: {user_id}")
+            st.write(f"User Name extraído: {user_name}")
+            
             st.session_state.user_data = {
                 'id': user_id,
                 'name': user_name
@@ -987,8 +1001,10 @@ def handle_authentication_flow(stage, prompt):
             try:
                 products = get_company_products(auth_data['company_id'])
                 st.session_state.company_products = products
+                st.write(f"Productos obtenidos: {len(products) if products else 0}")
             except Exception as prod_error:
                 st.session_state.company_products = []
+                st.write(f"Error obteniendo productos: {prod_error}")
             
             user_name = auth_data['user_data'].get('name', 'Usuario')
             
@@ -996,13 +1012,19 @@ def handle_authentication_flow(stage, prompt):
             success_message = MESSAGES['code_authentication_success']
             menu_message = MESSAGES['login_success_menu'].format(user_name=user_name)
             
+            st.write(f"🔄 Generando respuesta exitosa...")
             return f"{success_message}\n\n{menu_message}", 'main_menu'
             
         except Exception as e:
             error_msg = str(e)
+            st.write(f"❌ Error en autenticación: {error_msg}")
+            st.write(f"Tipo de error: {type(e).__name__}")
+            
             if "código" in error_msg.lower() or "inválido" in error_msg.lower():
+                st.write("🔄 Código inválido - manteniendo en waiting_verification_code")
                 return MESSAGES['invalid_code'], 'waiting_verification_code'
             else:
+                st.write("🔄 Error general - manteniendo en waiting_verification_code")
                 return f"{MESSAGES['code_error']} {error_msg}", 'waiting_verification_code'
     
     elif stage == 'authenticated':
@@ -1033,14 +1055,25 @@ def get_input_placeholder(stage):
     return "Escribe tu mensaje aquí..."
 
 def dispatch_conversation_stage(stage, prompt):
+    # DEBUG: Información del dispatcher
+    st.write("🔍 **DEBUG - Dispatcher**")
+    st.write(f"Stage recibido: {stage}")
+    st.write(f"Prompt recibido: '{prompt}'")
+    
     # Handle authentication flow stages
     auth_stages = ['waiting_email', 'waiting_verification_code', 'authenticated']
     if stage in auth_stages:
+        st.write(f"✅ Stage es de autenticación: {stage}")
         response, new_stage = handle_authentication_flow(stage, prompt)
+        st.write(f"🔄 Response del handler: {response[:50] if response else 'None'}...")
+        st.write(f"🔄 New stage del handler: {new_stage}")
+        
         if response is not None:
+            st.write("✅ Devolviendo response normal")
             return response, new_stage
         elif new_stage is not None:
             # Caso especial: estabilización silenciosa (response=None pero new_stage definido)
+            st.write("⚠️ Estabilización silenciosa - devolviendo string vacío")
             return "", new_stage
     
     # Handle product-related queries
@@ -1252,6 +1285,14 @@ for message in st.session_state.messages:
 
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
+    # DEBUG: Información general
+    st.write("=" * 50)
+    st.write("🔍 **DEBUG GENERAL**")
+    st.write(f"Stage actual: {st.session_state.stage}")
+    st.write(f"Prompt recibido: '{prompt}'")
+    st.write(f"Longitud prompt: {len(prompt)}")
+    st.write("=" * 50)
+    
     # Prevenir procesamiento duplicado básico
     if prompt and prompt.strip():
         # Handle password masking for display
@@ -1264,12 +1305,19 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
         # Use dispatcher pattern to handle all conversation stages
         response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
         
+        st.write(f"🔄 Respuesta del dispatcher: {response[:50] if response else 'None'}...")
+        st.write(f"🔄 Nuevo stage del dispatcher: {new_stage}")
+        
         # Update stage if it changed
         if new_stage != st.session_state.stage:
+            st.write(f"⚠️ CAMBIO DE STAGE: {st.session_state.stage} → {new_stage}")
             st.session_state.stage = new_stage
 
         # Solo agregar mensaje si hay respuesta
         if response and response.strip():
+            st.write("✅ Agregando respuesta al chat")
             st.session_state.messages.append({"role": "assistant", "content": response})
             with st.chat_message("assistant"):
                 st.markdown(response)
+        else:
+            st.write("⚠️ No hay respuesta para mostrar (estabilización silenciosa)")
