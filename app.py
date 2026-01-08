@@ -1215,7 +1215,8 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Unified conversation flow using dispatcher pattern
-if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
+chat_key = f"chat_input_{st.session_state.stage}"
+if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key=chat_key):
     # Prevenir procesamiento duplicado con verificación mejorada y timestamp
     import time
     current_time = time.time()
