@@ -822,6 +822,12 @@ def clear_user_session_data():
 
 def handle_main_menu_selection(prompt):
     """Maneja la selección del menú principal después del login"""
+    # Verificar si el widget está listo para procesar
+    if not st.session_state.get('widget_ready', False):
+        st.session_state.widget_ready = True
+        # En la primera entrada después de transición, ignorar y esperar la siguiente
+        return "Por favor, selecciona una opción (1 o 2):", 'main_menu'
+    
     user_choice = prompt.strip()
     
     if user_choice == '1':
@@ -964,6 +970,9 @@ def handle_authentication_flow(stage, prompt):
                 st.session_state.company_products = []
             
             user_name = auth_data['user_data'].get('name', 'Usuario')
+            
+            # Forzar estabilización del widget para el próximo stage
+            st.session_state.widget_ready = False
             
             # Mostrar mensaje de éxito y menú principal
             success_message = MESSAGES['code_authentication_success']
@@ -1210,10 +1219,6 @@ if 'user_email' not in st.session_state:
     st.session_state.user_email = None
 if 'auth_token' not in st.session_state:
     st.session_state.auth_token = None
-if 'last_processed_input' not in st.session_state:
-    st.session_state.last_processed_input = ""
-if 'last_input_time' not in st.session_state:
-    st.session_state.last_input_time = 0
 if 'company_products' not in st.session_state:
     st.session_state.company_products = None
 if 'user_profile' not in st.session_state:
@@ -1226,24 +1231,8 @@ for message in st.session_state.messages:
 
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
-    # Prevenir procesamiento duplicado con verificación mejorada y timestamp
-    import time
-    current_time = time.time()
-    
-    if 'last_processed_input' not in st.session_state:
-        st.session_state.last_processed_input = ""
-    if 'last_input_time' not in st.session_state:
-        st.session_state.last_input_time = 0
-    
-    # Solo procesar si es diferente al último input O ha pasado suficiente tiempo (debounce)
-    time_diff = current_time - st.session_state.last_input_time
-    is_different_input = prompt != st.session_state.last_processed_input
-    is_debounced = time_diff > 1.0  # 1 segundo de debounce
-    
-    if prompt and prompt.strip() and (is_different_input or is_debounced):
-        st.session_state.last_processed_input = prompt
-        st.session_state.last_input_time = current_time
-        
+    # Prevenir procesamiento duplicado básico
+    if prompt and prompt.strip():
         # Handle password masking for display
         display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
         
