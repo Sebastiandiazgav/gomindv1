@@ -1236,9 +1236,6 @@ def handle_chat_input():
 
             # Agregar respuesta del asistente
             st.session_state.messages.append({"role": "assistant", "content": response})
-            
-            # Limpiar el input para evitar re-procesamiento
-            st.session_state.chat_widget = ""
 
 # Chat input con callback pattern
 st.chat_input(
