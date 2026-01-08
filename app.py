@@ -320,21 +320,41 @@ def get_user_results(user_id):
     token = st.session_state.auth_token
     url = f"{API_BASE_URL}/api/parameters/{user_id}/results"
     headers = {"Authorization": f"Bearer {token}"}
+    
+    # DEBUG: Mostrar información de la llamada API
+    st.write("🌐 **DEBUG - Get User Results**")
+    st.write(f"URL: {url}")
+    st.write(f"User ID: {user_id}")
+    st.write(f"Token disponible: {'Sí' if token else 'No'}")
+    st.write(f"Headers: {headers}")
+    
     response = requests.get(url, headers=headers)
+    
+    st.write(f"Status Code: {response.status_code}")
+    st.write(f"Response Text: {response.text[:300]}...")
+    
     if response.status_code == 200:
         data = response.json()
+        st.write(f"✅ Datos obtenidos exitosamente")
+        st.write(f"Tipo de datos: {type(data)}")
+        st.write(f"Longitud de datos: {len(data) if isinstance(data, list) else 'No es lista'}")
+        
         if isinstance(data, list):
             if len(data) == 0:
+                st.write("❌ Lista vacía - sin resultados")
                 raise Exception("Paciente no identificado o sin resultados disponibles.")
             results = {}
             for item in data:
                 param = extract_parameter(item['analysis_results'])
                 value = item['value']
                 results[param] = value
+            st.write(f"✅ Resultados procesados: {len(results)} parámetros")
             return results
         else:
+            st.write(f"✅ Datos directos (no lista): {data}")
             return data
     else:
+        st.write(f"❌ Error API: {response.status_code} - {response.text}")
         raise Exception(f"Error obteniendo resultados: {response.status_code} - {response.text}")
 
 # Users database removed - not used in current implementation
@@ -437,6 +457,12 @@ def generate_medical_response(results, issues, user_name="Usuario"):
         return response, 'analyzing'
 
 def process_medical_results(user_id, user_name="Usuario"):
+    # DEBUG: Información del procesamiento
+    st.write("🔍 **DEBUG - Process Medical Results**")
+    st.write(f"User ID recibido: {user_id}")
+    st.write(f"User Name recibido: {user_name}")
+    st.write(f"Auth token disponible: {'Sí' if st.session_state.get('auth_token') else 'No'}")
+    
     try:
         results = get_user_results(user_id)
         st.session_state.user_data = {"id": user_id, "results": results}
@@ -447,6 +473,8 @@ def process_medical_results(user_id, user_name="Usuario"):
             
     except Exception as e:
         error_msg = str(e)
+        st.write(f"❌ Error en process_medical_results: {error_msg}")
+        
         if "Paciente no identificado" in error_msg:
             return f"Lo siento, no se logró identificar al paciente con el ID {user_id}. Verifica que el número sea correcto o contacta a soporte. ¿Hay algo más en lo que pueda ayudarte?", 'completed'
         else:
