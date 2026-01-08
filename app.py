@@ -913,6 +913,10 @@ def handle_authentication_flow(stage, prompt):
                     # Paso 2: Enviar código de verificación
                     try:
                         send_verification_code(st.session_state.user_email)
+                        
+                        # Forzar estabilización del widget para el próximo stage
+                        st.session_state.widget_ready = False
+                        
                         return MESSAGES['verification_code_sent'], 'waiting_verification_code'
                     except Exception as e:
                         return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
@@ -925,6 +929,12 @@ def handle_authentication_flow(stage, prompt):
             return f"Error de conexión. Por favor, intenta nuevamente más tarde. Detalles: {str(e)}", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
+        # Verificar si el widget está listo para procesar
+        if not st.session_state.get('widget_ready', True):
+            st.session_state.widget_ready = True
+            # En la primera entrada después de transición, ignorar y esperar la siguiente
+            return "Por favor, ingresa el código de verificación que recibiste:", 'waiting_verification_code'
+        
         verification_code = prompt.strip()
         try:
             # Paso 3: Autenticación completa con código
@@ -1215,8 +1225,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Unified conversation flow using dispatcher pattern
-chat_key = f"chat_input_{st.session_state.stage}"
-if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key=chat_key):
+if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
     # Prevenir procesamiento duplicado con verificación mejorada y timestamp
     import time
     current_time = time.time()
