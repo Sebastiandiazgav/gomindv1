@@ -168,13 +168,25 @@ def authenticate_with_code(email, auth_code):
     
     if response.status_code == 200:
         data = response.json()
+        
+        # VALIDAR EL CAMPO SUCCESS
+        if not data.get('success', True):  # Si success existe y es false
+            st.write(f"❌ API Success: False - {data.get('message', 'Error desconocido')}")
+            raise Exception(f"Código inválido: {data.get('message', 'Código de verificación incorrecto')}")
+        
         token = data.get('token')
         company_id = data.get('company', {}).get('company_id')
         user_data = data.get('user', {})
         
+        st.write(f"✅ API Success: True")
         st.write(f"Token obtenido: {'Sí' if token else 'No'}")
         st.write(f"Company ID: {company_id}")
         st.write(f"User data keys: {list(user_data.keys()) if user_data else 'None'}")
+        
+        # VALIDAR QUE TENGAMOS DATOS NECESARIOS
+        if not token or not company_id or not user_data:
+            st.write(f"❌ Datos incompletos - Token: {bool(token)}, Company: {bool(company_id)}, User: {bool(user_data)}")
+            raise Exception("Error en autenticación: datos incompletos del servidor")
         
         return {'token': token, 'company_id': company_id, 'user_data': user_data}
     else:
@@ -887,6 +899,11 @@ def handle_product_selection(prompt):
 
 def start_medical_analysis():
     """Inicia el flujo de análisis médico (opción 2)"""
+    # DEBUG: Verificar datos disponibles
+    st.write("🔍 **DEBUG - Start Medical Analysis**")
+    st.write(f"User data disponible: {st.session_state.get('user_data', 'None')}")
+    st.write(f"Auth token disponible: {'Sí' if st.session_state.get('auth_token') else 'No'}")
+    
     # Verificar si ya tenemos datos del usuario autenticado
     if (hasattr(st.session_state, 'user_data') and 
         st.session_state.user_data and 
@@ -896,9 +913,12 @@ def start_medical_analysis():
         user_id = st.session_state.user_data['id']
         user_name = st.session_state.user_data.get('name', 'Usuario')
         
+        st.write(f"✅ Usando datos existentes - ID: {user_id}, Nombre: {user_name}")
+        
         return process_medical_results(user_id, user_name)
     else:
-        # Fallback: pedir ID si no tenemos datos
+        # Fallback: pedir ID si no tenemos datos (no debería pasar)
+        st.write("❌ No hay datos de usuario - solicitando ID manualmente")
         return "Para analizar tus resultados médicos, por favor ingresa tu número de identificación:", 'authenticated'
 
 def handle_authentication_flow(stage, prompt):
@@ -1234,14 +1254,6 @@ for message in st.session_state.messages:
 
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
-    # DEBUG: Información general
-    st.write("=" * 50)
-    st.write("🔍 **DEBUG GENERAL**")
-    st.write(f"Stage actual: {st.session_state.stage}")
-    st.write(f"Prompt recibido: '{prompt}'")
-    st.write(f"Longitud prompt: {len(prompt)}")
-    st.write("=" * 50)
-    
     # Prevenir procesamiento duplicado básico
     if prompt and prompt.strip():
         # Handle password masking for display
@@ -1254,12 +1266,8 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
         # Use dispatcher pattern to handle all conversation stages
         response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
         
-        st.write(f"🔄 Respuesta generada: {response[:100]}...")
-        st.write(f"🔄 Nuevo stage: {new_stage}")
-        
         # Update stage if it changed
         if new_stage != st.session_state.stage:
-            st.write(f"⚠️ CAMBIO DE STAGE: {st.session_state.stage} → {new_stage}")
             st.session_state.stage = new_stage
 
         st.session_state.messages.append({"role": "assistant", "content": response})
