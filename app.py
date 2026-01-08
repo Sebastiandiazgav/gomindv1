@@ -116,7 +116,11 @@ MESSAGES = {
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
     'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
-    'invalid_product_option': "Por favor, elige un número válido de la lista de productos."
+    'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
+    'verification_code_sent': "Autenticación básica exitosa. Para acceder a tus datos médicos de forma segura, he enviado un código de verificación a tu correo.\n\nPor favor, ingresa el código que recibiste:",
+    'code_authentication_success': "¡Perfecto! Verificación completada exitosamente.",
+    'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
+    'code_error': "Error procesando el código. Por favor, intenta nuevamente:"
 }
 
 def get_api_token(email=None, password=None):
@@ -134,6 +138,30 @@ def get_api_token(email=None, password=None):
         return {'token': token, 'company_id': company_id}
     else:
         raise Exception(f"Error obteniendo token: {response.text}")
+
+def send_verification_code(email):
+    """Envía código de verificación al correo del usuario"""
+    url = f"{API_BASE_URL}/api/auth/login/user-exist"
+    payload = {"email": email}
+    response = requests.post(url, json=payload, timeout=30)
+    if response.status_code == 200:
+        return True
+    else:
+        raise Exception(f"Error enviando código: {response.text}")
+
+def authenticate_with_code(email, auth_code):
+    """Autentica con código de verificación para obtener token completo"""
+    url = f"{API_BASE_URL}/api/auth/login/wsp"
+    payload = {"email": email, "auth_code": int(auth_code)}
+    response = requests.post(url, json=payload, timeout=30)
+    if response.status_code == 200:
+        data = response.json()
+        token = data.get('token')
+        company_id = data.get('company', {}).get('company_id')
+        user_data = data.get('user', {})
+        return {'token': token, 'company_id': company_id, 'user_data': user_data}
+    else:
+        raise Exception(f"Error autenticando con código: {response.text}")
 
 def extract_parameter(analysis_results):
     if "VALOR " in analysis_results:
@@ -867,41 +895,27 @@ def handle_authentication_flow(stage, prompt):
     elif stage == 'waiting_password':
         password = prompt.strip()
         try:
+            # Paso 1: Autenticación básica con email y contraseña
             url = f"{API_BASE_URL}/api/auth/login"
             payload = {"email": st.session_state.user_email, "password": password}
-            response = requests.post(url, json=payload)
+            response = requests.post(url, json=payload, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
-                token = data.get('token')
+                basic_token = data.get('token')
                 company_id = data.get('company', {}).get('company_id')
                 
-                if token and company_id:
-                    st.session_state.auth_token = token
+                if basic_token and company_id:
+                    # Guardar token básico temporalmente
+                    st.session_state.basic_token = basic_token
                     st.session_state.company_id = company_id
                     
-                    patient_id = data.get('user', {}).get('user_id')
-                    
-                    # Obtener productos y datos del usuario
+                    # Paso 2: Enviar código de verificación
                     try:
-                        products = get_company_products(company_id)
-                        st.session_state.company_products = products
-                    except:
-                        products = data.get('company', {}).get('products', [])
-                        st.session_state.company_products = products if products else []
-                    
-                    user_name = data.get('user', {}).get('name', 'Usuario')
-                    patient_id = data.get('user', {}).get('user_id')
-                    
-                    # Guardar datos del usuario para uso posterior
-                    st.session_state.user_data = {
-                        'id': patient_id,
-                        'name': user_name
-                    }
-                    
-                    # Mostrar menú principal en lugar del flujo automático
-                    response_text = MESSAGES['login_success_menu'].format(user_name=user_name)
-                    return response_text, 'main_menu'
+                        send_verification_code(st.session_state.user_email)
+                        return MESSAGES['verification_code_sent'], 'waiting_verification_code'
+                    except Exception as e:
+                        return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
                 else:
                     return "Error en la autenticación. Credenciales inválidas. Por favor, intenta nuevamente con tu correo electrónico.", 'waiting_email'
             else:
@@ -909,6 +923,39 @@ def handle_authentication_flow(stage, prompt):
                 
         except Exception as e:
             return f"Error de conexión. Por favor, intenta nuevamente más tarde. Detalles: {str(e)}", 'waiting_email'
+    
+    elif stage == 'waiting_verification_code':
+        verification_code = prompt.strip()
+        try:
+            # Paso 3: Autenticación completa con código
+            auth_data = authenticate_with_code(st.session_state.user_email, verification_code)
+            
+            # Guardar token completo y datos de usuario
+            st.session_state.auth_token = auth_data['token']
+            st.session_state.company_id = auth_data['company_id']
+            st.session_state.user_data = auth_data['user_data']
+            
+            # Obtener productos de la empresa
+            try:
+                products = get_company_products(auth_data['company_id'])
+                st.session_state.company_products = products
+            except:
+                st.session_state.company_products = []
+            
+            user_name = auth_data['user_data'].get('name', 'Usuario')
+            
+            # Mostrar mensaje de éxito y menú principal
+            success_message = MESSAGES['code_authentication_success']
+            menu_message = MESSAGES['login_success_menu'].format(user_name=user_name)
+            
+            return f"{success_message}\n\n{menu_message}", 'main_menu'
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "código" in error_msg.lower() or "inválido" in error_msg.lower():
+                return MESSAGES['invalid_code'], 'waiting_verification_code'
+            else:
+                return f"{MESSAGES['code_error']} {error_msg}", 'waiting_verification_code'
     
     elif stage == 'authenticated':
         user_id = prompt.strip()
@@ -931,13 +978,15 @@ def get_input_placeholder(stage):
     # Solo mantener placeholder específico para JSON (que no causa transiciones problemáticas)
     if stage == 'waiting_json':
         return "Ingresa tus resultados médicos en formato JSON..."
+    elif stage == 'waiting_verification_code':
+        return "Ingresa el código de verificación..."
     
     # Para TODOS los demás stages, usar placeholder genérico estático
     return "Escribe tu mensaje aquí..."
 
 def dispatch_conversation_stage(stage, prompt):
     # Handle authentication flow stages
-    auth_stages = ['waiting_email', 'waiting_password', 'authenticated']
+    auth_stages = ['waiting_email', 'waiting_password', 'waiting_verification_code', 'authenticated']
     if stage in auth_stages:
         response, new_stage = handle_authentication_flow(stage, prompt)
         if response is not None:
@@ -1152,7 +1201,7 @@ for message in st.session_state.messages:
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
     # Handle password masking for display
-    display_prompt = "••••••••" if st.session_state.stage == 'waiting_password' else prompt
+    display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
     
     st.session_state.messages.append({"role": "user", "content": display_prompt})
     with st.chat_message("user"):
