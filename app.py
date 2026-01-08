@@ -153,22 +153,12 @@ def authenticate_with_code(email, auth_code):
     """Autentica con código de verificación para obtener token completo"""
     url = f"{API_BASE_URL}/api/auth/login/wsp"
     payload = {"email": email, "auth_code": int(auth_code)}
-    
-    print(f"DEBUG - Auth with code: {email}, code: {auth_code}")
-    
     response = requests.post(url, json=payload, timeout=30)
-    
-    print(f"DEBUG - Auth response status: {response.status_code}")
-    print(f"DEBUG - Auth response: {response.text}")
-    
     if response.status_code == 200:
         data = response.json()
         token = data.get('token')
         company_id = data.get('company', {}).get('company_id')
         user_data = data.get('user', {})
-        
-        print(f"DEBUG - Received user_data: {user_data}")
-        
         return {'token': token, 'company_id': company_id, 'user_data': user_data}
     else:
         raise Exception(f"Error autenticando con código: {response.text}")
@@ -300,17 +290,7 @@ def get_user_results(user_id):
     token = st.session_state.auth_token
     url = f"{API_BASE_URL}/api/parameters/{user_id}/results"
     headers = {"Authorization": f"Bearer {token}"}
-    
-    # Debug: mostrar qué se está enviando
-    print(f"DEBUG - API Call: GET {url}")
-    print(f"DEBUG - user_id: {user_id}")
-    print(f"DEBUG - token exists: {bool(token)}")
-    
     response = requests.get(url, headers=headers)
-    
-    print(f"DEBUG - Response status: {response.status_code}")
-    print(f"DEBUG - Response text: {response.text[:200]}...")  # Primeros 200 caracteres
-    
     if response.status_code == 200:
         data = response.json()
         if isinstance(data, list):
@@ -889,9 +869,6 @@ def handle_product_selection(prompt):
 
 def start_medical_analysis():
     """Inicia el flujo de análisis médico (opción 2)"""
-    # Debug: mostrar qué datos tenemos
-    print(f"DEBUG - user_data: {st.session_state.get('user_data')}")
-    
     # Verificar si ya tenemos datos del usuario autenticado
     if (hasattr(st.session_state, 'user_data') and 
         st.session_state.user_data and 
@@ -901,15 +878,8 @@ def start_medical_analysis():
         user_id = st.session_state.user_data['id']
         user_name = st.session_state.user_data.get('name', 'Usuario')
         
-        print(f"DEBUG - Using user_id: {user_id}, user_name: {user_name}")
         return process_medical_results(user_id, user_name)
     else:
-        # Debug: mostrar por qué no se encontraron datos
-        print(f"DEBUG - No user data found. user_data exists: {hasattr(st.session_state, 'user_data')}")
-        if hasattr(st.session_state, 'user_data'):
-            print(f"DEBUG - user_data content: {st.session_state.user_data}")
-            print(f"DEBUG - user_data has id: {st.session_state.user_data.get('id') if st.session_state.user_data else 'N/A'}")
-        
         # Fallback: pedir ID si no tenemos datos
         return "Para analizar tus resultados médicos, por favor ingresa tu número de identificación:", 'authenticated'
 
@@ -966,20 +936,15 @@ def handle_authentication_flow(stage, prompt):
             
             # Asegurar estructura correcta de user_data
             user_data = auth_data['user_data']
-            print(f"DEBUG - Raw user_data from API: {user_data}")
             
             # Intentar diferentes campos posibles para user_id
             user_id = user_data.get('user_id') or user_data.get('id') or user_data.get('userId')
             user_name = user_data.get('name', 'Usuario')
             
-            print(f"DEBUG - Extracted user_id: {user_id}, user_name: {user_name}")
-            
             st.session_state.user_data = {
                 'id': user_id,
                 'name': user_name
             }
-            
-            print(f"DEBUG - Final user_data stored: {st.session_state.user_data}")
             
             # Obtener productos de la empresa
             try:
@@ -1242,34 +1207,42 @@ if 'company_products' not in st.session_state:
 if 'user_profile' not in st.session_state:
     st.session_state.user_profile = None
 
+# Mostrar mensajes del chat
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Unified conversation flow using dispatcher pattern
-if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
-    # Prevenir procesamiento duplicado
-    if 'last_processed_input' not in st.session_state:
-        st.session_state.last_processed_input = ""
-    
-    # Solo procesar si es diferente al último input procesado
-    if prompt != st.session_state.last_processed_input:
-        st.session_state.last_processed_input = prompt
+def handle_chat_input():
+    """Maneja el input del chat usando callback pattern para evitar doble entrada"""
+    if st.session_state.get("chat_widget"):
+        prompt = st.session_state.chat_widget
         
-        # Handle password masking for display
-        display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
-        
-        st.session_state.messages.append({"role": "user", "content": display_prompt})
-        with st.chat_message("user"):
-            st.markdown(display_prompt)
+        # Verificar que no sea un input duplicado
+        if prompt and prompt.strip() and prompt != st.session_state.get('last_processed_input', ''):
+            st.session_state.last_processed_input = prompt
+            
+            # Handle password masking for display
+            display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
+            
+            # Agregar mensaje del usuario
+            st.session_state.messages.append({"role": "user", "content": display_prompt})
+            
+            # Procesar el input inmediatamente
+            response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
+            
+            # Update stage if it changed
+            if new_stage != st.session_state.stage:
+                st.session_state.stage = new_stage
 
-        # Use dispatcher pattern to handle all conversation stages
-        response, new_stage = dispatch_conversation_stage(st.session_state.stage, prompt)
-        
-        # Update stage if it changed
-        if new_stage != st.session_state.stage:
-            st.session_state.stage = new_stage
+            # Agregar respuesta del asistente
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            # Limpiar el input para evitar re-procesamiento
+            st.session_state.chat_widget = ""
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        with st.chat_message("assistant"):
-            st.markdown(response)
+# Chat input con callback pattern
+st.chat_input(
+    get_input_placeholder(st.session_state.stage), 
+    key="chat_widget",
+    on_change=handle_chat_input
+)
