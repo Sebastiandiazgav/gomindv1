@@ -840,12 +840,6 @@ def clear_user_session_data():
 
 def handle_main_menu_selection(prompt):
     """Maneja la selección del menú principal después del login"""
-    # Verificar si el widget está listo para procesar
-    if not st.session_state.get('widget_ready', False):
-        st.session_state.widget_ready = True
-        # En la primera entrada después de transición, ignorar y esperar la siguiente
-        return "Por favor, selecciona una opción (1 o 2):", 'main_menu'
-    
     user_choice = prompt.strip()
     
     if user_choice == '1':
@@ -982,9 +976,6 @@ def handle_authentication_flow(stage, prompt):
                 st.session_state.company_products = []
             
             user_name = auth_data['user_data'].get('name', 'Usuario')
-            
-            # Configurar estabilización para el menú principal
-            st.session_state.widget_ready = False
             
             # Mostrar mensaje de éxito y menú principal
             success_message = MESSAGES['code_authentication_success']
