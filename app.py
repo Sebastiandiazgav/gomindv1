@@ -154,7 +154,7 @@ def authenticate_with_code(email, auth_code):
     url = f"{API_BASE_URL}/api/auth/login/wsp"
     payload = {"email": email, "auth_code": int(auth_code)}
     
-    # DEBUG: Mostrar información de la llamada API
+    # DEBUG: Mostrar información de la llamada API para validación
     st.write("🌐 **DEBUG - API Call**")
     st.write(f"URL: {url}")
     st.write(f"Email: {email}")
@@ -840,33 +840,21 @@ def clear_user_session_data():
 
 def handle_main_menu_selection(prompt):
     """Maneja la selección del menú principal después del login"""
-    # DEBUG: Mostrar información de debugging
-    st.write("🔍 **DEBUG - Menú Principal**")
-    st.write(f"Widget Ready: {st.session_state.get('widget_ready', 'No definido')}")
-    st.write(f"Opción ingresada: '{prompt.strip()}'")
-    st.write(f"User data: {st.session_state.get('user_data', 'No definido')}")
-    st.write(f"Auth token: {'Sí' if st.session_state.get('auth_token') else 'No'}")
-    
     # Verificar si el widget está listo para procesar
     if not st.session_state.get('widget_ready', False):
         st.session_state.widget_ready = True
-        st.write("⚠️ Primera entrada - ignorando por estabilización")
         # En la primera entrada después de transición, ignorar y esperar la siguiente
         return "Por favor, selecciona una opción (1 o 2):", 'main_menu'
     
-    st.write("✅ Procesando selección de menú...")
     user_choice = prompt.strip()
     
     if user_choice == '1':
-        st.write("🔄 Opción 1 seleccionada - Mostrar productos")
         # Opción 1: Mostrar productos
         return show_products_menu()
     elif user_choice == '2':
-        st.write("🔄 Opción 2 seleccionada - Análisis médico")
         # Opción 2: Análisis médico (flujo actual)
         return start_medical_analysis()
     else:
-        st.write(f"❌ Opción inválida: '{user_choice}'")
         return MESSAGES['invalid_menu_option'], 'main_menu'
 
 def show_products_menu():
@@ -950,8 +938,7 @@ def handle_authentication_flow(stage, prompt):
                     try:
                         send_verification_code(st.session_state.user_email)
                         
-                        # Forzar estabilización del widget para el próximo stage
-                        st.session_state.widget_ready = False
+                        # NO configurar widget_ready aquí - dejar que funcione normalmente
                         
                         return MESSAGES['verification_code_sent'], 'waiting_verification_code'
                     except Exception as e:
@@ -965,31 +952,11 @@ def handle_authentication_flow(stage, prompt):
             return f"Error de conexión. Por favor, intenta nuevamente más tarde. Detalles: {str(e)}", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
-        # DEBUG: Mostrar información de debugging
-        st.write("🔍 **DEBUG - Código de Verificación**")
-        st.write(f"Widget Ready: {st.session_state.get('widget_ready', 'No definido')}")
-        st.write(f"Email: {st.session_state.get('user_email', 'No definido')}")
-        st.write(f"Código ingresado: '{prompt.strip()}'")
-        st.write(f"Longitud código: {len(prompt.strip())}")
-        
-        # Verificar si el widget está listo para procesar
-        if not st.session_state.get('widget_ready', False):
-            st.session_state.widget_ready = True
-            st.write("⚠️ Primera entrada - ignorando por estabilización")
-            # En la primera entrada después de transición, ignorar y esperar la siguiente
-            return "Por favor, ingresa el código de verificación que recibiste:", 'waiting_verification_code'
-        
-        st.write("✅ Procesando código de verificación...")
         verification_code = prompt.strip()
         
         try:
             # Paso 3: Autenticación completa con código
-            st.write(f"🔄 Enviando código '{verification_code}' al API...")
             auth_data = authenticate_with_code(st.session_state.user_email, verification_code)
-            
-            st.write("✅ Respuesta exitosa del API")
-            st.write(f"Token recibido: {auth_data.get('token', 'No token')[:20]}...")
-            st.write(f"User data: {auth_data.get('user_data', {})}")
             
             # Guardar token completo y datos de usuario
             st.session_state.auth_token = auth_data['token']
@@ -1002,9 +969,6 @@ def handle_authentication_flow(stage, prompt):
             user_id = user_data.get('user_id') or user_data.get('id') or user_data.get('userId')
             user_name = user_data.get('name', 'Usuario')
             
-            st.write(f"User ID extraído: {user_id}")
-            st.write(f"User Name extraído: {user_name}")
-            
             st.session_state.user_data = {
                 'id': user_id,
                 'name': user_name
@@ -1014,16 +978,13 @@ def handle_authentication_flow(stage, prompt):
             try:
                 products = get_company_products(auth_data['company_id'])
                 st.session_state.company_products = products
-                st.write(f"Productos obtenidos: {len(products) if products else 0}")
             except Exception as prod_error:
                 st.session_state.company_products = []
-                st.write(f"Error obteniendo productos: {prod_error}")
             
             user_name = auth_data['user_data'].get('name', 'Usuario')
             
-            # Forzar estabilización del widget para el próximo stage
+            # Configurar estabilización para el menú principal
             st.session_state.widget_ready = False
-            st.write("🔄 Configurando widget_ready = False para main_menu")
             
             # Mostrar mensaje de éxito y menú principal
             success_message = MESSAGES['code_authentication_success']
@@ -1033,14 +994,9 @@ def handle_authentication_flow(stage, prompt):
             
         except Exception as e:
             error_msg = str(e)
-            st.write(f"❌ Error en autenticación: {error_msg}")
-            st.write(f"Tipo de error: {type(e).__name__}")
-            
             if "código" in error_msg.lower() or "inválido" in error_msg.lower():
-                st.write("🔄 Código inválido - manteniendo en waiting_verification_code")
                 return MESSAGES['invalid_code'], 'waiting_verification_code'
             else:
-                st.write("🔄 Error general - manteniendo en waiting_verification_code")
                 return f"{MESSAGES['code_error']} {error_msg}", 'waiting_verification_code'
     
     elif stage == 'authenticated':
