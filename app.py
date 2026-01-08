@@ -1039,6 +1039,9 @@ def dispatch_conversation_stage(stage, prompt):
         response, new_stage = handle_authentication_flow(stage, prompt)
         if response is not None:
             return response, new_stage
+        elif new_stage is not None:
+            # Caso especial: estabilización silenciosa (response=None pero new_stage definido)
+            return "", new_stage
     
     # Handle product-related queries
     if stage == 'showing_products':
@@ -1265,6 +1268,8 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
         if new_stage != st.session_state.stage:
             st.session_state.stage = new_stage
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        with st.chat_message("assistant"):
-            st.markdown(response)
+        # Solo agregar mensaje si hay respuesta
+        if response and response.strip():
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            with st.chat_message("assistant"):
+                st.markdown(response)
