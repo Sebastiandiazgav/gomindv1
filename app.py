@@ -957,8 +957,9 @@ def handle_authentication_flow(stage, prompt):
         # Verificar si el widget está listo para procesar
         if not st.session_state.get('widget_ready', False):
             st.session_state.widget_ready = True
-            # En la primera entrada después de transición, ignorar y esperar la siguiente
-            return "Por favor, ingresa el código de verificación que recibiste:", 'waiting_verification_code'
+            # En la primera entrada después de transición, ignorar SILENCIOSAMENTE
+            # No devolver mensaje, solo ignorar esta entrada
+            return None, 'waiting_verification_code'
         
         verification_code = prompt.strip()
         
