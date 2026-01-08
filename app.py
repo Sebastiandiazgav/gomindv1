@@ -123,21 +123,6 @@ MESSAGES = {
     'code_error': "Error procesando el código. Por favor, intenta nuevamente:"
 }
 
-def get_api_token(email=None, password=None):
-    if email and password:
-        payload = {"email": email, "password": password}
-    else:
-        payload = {"email": API_EMAIL, "password": API_PASSWORD}
-
-    url = f"{API_BASE_URL}/api/auth/login" 
-    response = requests.post(url, json=payload)
-    if response.status_code == 200:
-        data = response.json()
-        token = data.get('token')
-        company_id = data.get('company', {}).get('company_id')
-        return {'token': token, 'company_id': company_id}
-    else:
-        raise Exception(f"Error obteniendo token: {response.text}")
 
 def send_verification_code(email):
     """Envía código de verificación al correo del usuario"""
@@ -954,50 +939,21 @@ def handle_authentication_flow(stage, prompt):
         email = prompt.strip().lower()
         if is_valid_email(email):
             st.session_state.user_email = email
-            return "Gracias. Ahora, por favor ingresa tu contraseña para verificar tu identidad.", 'waiting_password'
+            
+            # Enviar código de verificación directamente después del email
+            try:
+                send_verification_code(email)
+                return MESSAGES['verification_code_sent'], 'waiting_verification_code'
+            except Exception as e:
+                return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
         else:
             return "El dato ingresado no parece ser válido. Por favor, verifica la información.", 'waiting_email'
-    
-    elif stage == 'waiting_password':
-        password = prompt.strip()
-        try:
-            # Paso 1: Autenticación básica con email y contraseña
-            url = f"{API_BASE_URL}/api/auth/login"
-            payload = {"email": st.session_state.user_email, "password": password}
-            response = requests.post(url, json=payload, timeout=30)
-            
-            if response.status_code == 200:
-                data = response.json()
-                basic_token = data.get('token')
-                company_id = data.get('company', {}).get('company_id')
-                
-                if basic_token and company_id:
-                    # Guardar token básico temporalmente
-                    st.session_state.basic_token = basic_token
-                    st.session_state.company_id = company_id
-                    
-                    # Paso 2: Enviar código de verificación
-                    try:
-                        send_verification_code(st.session_state.user_email)
-                        
-                        # NO configurar widget_ready aquí - dejar que funcione normalmente
-                        
-                        return MESSAGES['verification_code_sent'], 'waiting_verification_code'
-                    except Exception as e:
-                        return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
-                else:
-                    return "Error en la autenticación. Credenciales inválidas. Por favor, intenta nuevamente con tu correo electrónico.", 'waiting_email'
-            else:
-                return "Credenciales inválidas. Por favor, verifica tu correo electrónico y contraseña, e intenta nuevamente.", 'waiting_email'
-                
-        except Exception as e:
-            return f"Error de conexión. Por favor, intenta nuevamente más tarde. Detalles: {str(e)}", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
         verification_code = prompt.strip()
         
         try:
-            # Paso 3: Autenticación completa con código
+            # Autenticación completa con código
             auth_data = authenticate_with_code(st.session_state.user_email, verification_code)
             
             # Guardar token completo y datos de usuario
@@ -1067,7 +1023,7 @@ def get_input_placeholder(stage):
 
 def dispatch_conversation_stage(stage, prompt):
     # Handle authentication flow stages
-    auth_stages = ['waiting_email', 'waiting_password', 'waiting_verification_code', 'authenticated']
+    auth_stages = ['waiting_email', 'waiting_verification_code', 'authenticated']
     if stage in auth_stages:
         response, new_stage = handle_authentication_flow(stage, prompt)
         if response is not None:
@@ -1258,7 +1214,7 @@ if 'messages' not in st.session_state:
     # Agregar mensaje de bienvenida inicial
     welcome_message = """👋 ¡Hola! Soy **Bianca**, tu asistente de salud de GoMind.
 
-Para comenzar, por favor ingresa tu **correo electrónico** para verificar tu identidad."""
+Para comenzar, por favor ingresa tu **correo electrónico**. Te enviaré un código de verificación para confirmar tu identidad."""
     st.session_state.messages.append({"role": "assistant", "content": welcome_message})
 if 'context' not in st.session_state:
     st.session_state.context = ""
@@ -1285,7 +1241,7 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
     # Prevenir procesamiento duplicado básico
     if prompt and prompt.strip():
         # Handle password masking for display
-        display_prompt = "••••••••" if st.session_state.stage in ['waiting_password', 'waiting_verification_code'] else prompt
+        display_prompt = "••••••••" if st.session_state.stage in ['waiting_verification_code'] else prompt
         
         st.session_state.messages.append({"role": "user", "content": display_prompt})
         with st.chat_message("user"):
