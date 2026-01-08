@@ -303,37 +303,45 @@ def send_appointment_to_api(appointment_api_data):
 
 def get_user_results(user_id):
     token = st.session_state.auth_token
-    url = f"{API_BASE_URL}/api/parameters/{user_id}/results"
+    # NUEVO ENDPOINT: No necesita user_id en la URL, se obtiene del token
+    url = f"{API_BASE_URL}/api/parameters/results-user"
     headers = {"Authorization": f"Bearer {token}"}
     
     # DEBUG: Mostrar información de la llamada API
-    st.write("🌐 **DEBUG - Get User Results**")
+    st.write("🌐 **DEBUG - Get User Results (NUEVO ENDPOINT)**")
     st.write(f"URL: {url}")
-    st.write(f"User ID: {user_id}")
+    st.write(f"User ID (solo para referencia): {user_id}")
     st.write(f"Token disponible: {'Sí' if token else 'No'}")
     st.write(f"Headers: {headers}")
+    st.write("ℹ️ El user_id se obtiene automáticamente del token")
     
     response = requests.get(url, headers=headers)
     
     st.write(f"Status Code: {response.status_code}")
-    st.write(f"Response Text: {response.text[:300]}...")
+    st.write(f"Response Text: {response.text[:500]}...")
     
     if response.status_code == 200:
         data = response.json()
         st.write(f"✅ Datos obtenidos exitosamente")
         st.write(f"Tipo de datos: {type(data)}")
-        st.write(f"Longitud de datos: {len(data) if isinstance(data, list) else 'No es lista'}")
+        st.write(f"Contenido completo: {data}")
         
         if isinstance(data, list):
+            st.write(f"📊 Es una lista con {len(data)} elementos")
             if len(data) == 0:
                 st.write("❌ Lista vacía - sin resultados")
                 raise Exception("Paciente no identificado o sin resultados disponibles.")
+            
             results = {}
-            for item in data:
+            for i, item in enumerate(data):
+                st.write(f"📋 Procesando item {i+1}: {item}")
                 param = extract_parameter(item['analysis_results'])
                 value = item['value']
                 results[param] = value
+                st.write(f"   → {param}: {value}")
+            
             st.write(f"✅ Resultados procesados: {len(results)} parámetros")
+            st.write(f"📊 Resultados finales: {results}")
             return results
         else:
             st.write(f"✅ Datos directos (no lista): {data}")
