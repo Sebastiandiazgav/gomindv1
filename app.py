@@ -129,7 +129,19 @@ def send_verification_code(email):
     url = f"{API_BASE_URL}/api/auth/login/user-exist"
     payload = {"email": email}
     response = requests.post(url, json=payload, timeout=30)
+    
     if response.status_code == 200:
+        data = response.json()
+        
+        # Validar si el usuario existe
+        user_exists = data.get('user_exist', True)  # Default True para compatibilidad
+        message = data.get('message', '')
+        
+        if not user_exists:
+            # Usuario no existe - lanzar excepción con el mensaje del API
+            raise Exception(message if message else "Usuario no encontrado")
+        
+        # Usuario existe - código enviado exitosamente
         return True
     else:
         raise Exception(f"Error enviando código: {response.text}")
@@ -893,7 +905,13 @@ def handle_authentication_flow(stage, prompt):
                 send_verification_code(email)
                 return MESSAGES['verification_code_sent'], 'waiting_verification_code'
             except Exception as e:
-                return f"Error enviando código de verificación: {str(e)}. Por favor, intenta nuevamente.", 'waiting_email'
+                error_msg = str(e)
+                # Si el mensaje viene del API (usuario no existe), mostrarlo directamente
+                if "Usuario no encontrado" in error_msg or "No encontramos" in error_msg:
+                    return error_msg, 'waiting_email'
+                else:
+                    # Otros errores técnicos
+                    return f"Error enviando código de verificación: {error_msg}. Por favor, intenta nuevamente.", 'waiting_email'
         else:
             return "El dato ingresado no parece ser válido. Por favor, verifica la información.", 'waiting_email'
     
