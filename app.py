@@ -117,7 +117,7 @@ MESSAGES = {
     'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
     'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
-    'verification_code_sent': "He enviado un código de verificación a tu correo. Ingrésalo:",
+    'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
     'code_authentication_success': "¡Perfecto! Verificación completada exitosamente.",
     'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
     'code_error': "Error procesando el código. Por favor, intenta nuevamente:"
