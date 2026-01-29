@@ -1177,9 +1177,9 @@ if 'user_data' not in st.session_state:
 if 'messages' not in st.session_state:
     st.session_state.messages = []
     # Agregar mensaje de bienvenida inicial
-    welcome_message = """👋 ¡Hola! Soy **Bianca**, tu asistente de salud de GoMind.
+    welcome_message = """👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.
 
-Para comenzar, por favor ingresa tu **correo electrónico**. Te enviaré un código de verificación para confirmar tu identidad."""
+Ingresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad"""
     st.session_state.messages.append({"role": "assistant", "content": welcome_message})
 if 'context' not in st.session_state:
     st.session_state.context = ""
