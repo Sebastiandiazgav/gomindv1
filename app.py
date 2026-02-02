@@ -95,8 +95,8 @@ Responde ÚNICAMENTE con una de estas palabras: POSITIVA, NEGATIVA, AMBIGUA, PRO
             return 'AMBIGUA'
 
 MESSAGES = {
-    'healthy_results': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.",
-    'unhealthy_results': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no estan muy elevados, sería recomendable que un médico los revise más a fondo.",
+    'healthy_results': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
+    'unhealthy_results': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no estan muy elevados, sería recomendable que un médico los revise más a fondo.\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
     'appointment_question': "¿Te gustaría que te ayude a agendar una cita para que puedas discutir estos resultados con un profesional?",
     'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n",
     'appointment_error': "Lo siento, hubo un problema al agendar tu cita (Error {status}). Por favor, intenta nuevamente en unos minutos o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
@@ -112,7 +112,7 @@ MESSAGES = {
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
-    'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n1. Agendar mi chequeo preventivo\n2. Quiero analizar mis resultados de exámenes\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
+    'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n1. Agendar mi chequeo preventivo\n2. Quiero analizar mis resultados de exámenes",
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
     'product_selected': "Perfecto ✅ Para agendar tu **{product_name}**, contamos con los siguientes centros médicos:",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
