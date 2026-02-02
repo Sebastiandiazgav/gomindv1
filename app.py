@@ -95,8 +95,9 @@ Responde ÚNICAMENTE con una de estas palabras: POSITIVA, NEGATIVA, AMBIGUA, PRO
             return 'AMBIGUA'
 
 MESSAGES = {
-    'healthy_results': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
-    'unhealthy_results': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no estan muy elevados, sería recomendable que un médico los revise más a fondo.\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
+    'healthy_results_intro': "¡Excelente noticia, tus valores están todos dentro del rango saludable:\n\n{results}\n\nEstos resultados indican que estás llevando un estilo de vida saludable. ¡Felicitaciones! Sigue así con tus buenos hábitos de alimentación y ejercicio.",
+    'unhealthy_results_intro': "He revisado tus valores y me gustaría comentarte lo que veo:\n\n{issues}\n\nAunque no están muy elevados, sería recomendable que un médico los revise más a fondo.",
+    'disclaimer': "\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
     'appointment_question': "¿Te gustaría que te ayude a agendar una cita para que puedas discutir estos resultados con un profesional?",
     'appointment_success': "¡Excelente! Tu cita quedó confirmada para el {day} a las {time} en {clinic}.\n\nLa cita ha sido registrada correctamente en nuestro sistema. Te enviaremos un recordatorio antes de la hora programada.\n\n",
     'appointment_error': "Lo siento, hubo un problema al agendar tu cita (Error {status}). Por favor, intenta nuevamente en unos minutos o contacta a nuestro soporte técnico.\n\n¿Hay algo más en lo que pueda ayudarte mientras tanto?",
@@ -405,16 +406,35 @@ def validate_appointment_data():
 
 def generate_medical_response(results, issues, user_name="Usuario"):
     if not issues:
+        # Resultados saludables
         results_text = "\n".join([f"- {k}: {v}" for k, v in results.items()])
         response = f"{user_name}! Gracias por compartir tus resultados conmigo. Me da gusto poder revisarlos contigo.\n\n"
-        response += MESSAGES['healthy_results'].format(results=results_text)
+        response += MESSAGES['healthy_results_intro'].format(results=results_text)
+        
+        # Generar pasos a seguir con IA
+        action_steps = generate_action_steps_with_ai(results, issues, is_healthy=True)
+        response += action_steps
+        
+        # Agregar disclaimer
+        response += MESSAGES['disclaimer']
+        
         return response, 'completed'
     else:
+        # Resultados no saludables
         issues_text = "\n".join([f"- {issue}" for issue in issues])
         response = f"{user_name}! Gracias por compartir tus resultados conmigo. "
-        response += MESSAGES['unhealthy_results'].format(issues=issues_text)
+        response += MESSAGES['unhealthy_results_intro'].format(issues=issues_text)
         
+        # Generar pasos a seguir con IA
+        action_steps = generate_action_steps_with_ai(results, issues, is_healthy=False)
+        response += action_steps
+        
+        # Agregar disclaimer
+        response += MESSAGES['disclaimer']
+        
+        # Preguntar sobre cita
         response += f"\n\n{MESSAGES['appointment_question']}"
+        
         return response, 'analyzing'
 
 def process_medical_results(user_id, user_name="Usuario"):
@@ -1101,6 +1121,76 @@ def analyze_results(results_dict):
                 needs_appointment = True
 
     return issues, needs_appointment
+
+def generate_action_steps_with_ai(results, issues, is_healthy):
+    """
+    Genera pasos a seguir personalizados usando IA basándose en los resultados médicos
+    
+    Args:
+        results: Dict con parámetros y valores (ej: {"Glicemia": 90, "Hemoglobina": 13})
+        issues: Lista de problemas detectados (ej: ["Glicemia fuera de rango: 120"])
+        is_healthy: Boolean - True si todos los valores están bien
+    
+    Returns:
+        String con los pasos a seguir formateados
+    """
+    try:
+        if is_healthy:
+            # Contexto para resultados saludables
+            results_text = ", ".join([f"{k}: {v}" for k, v in results.items()])
+            prompt = f"""Eres un asistente médico virtual. El usuario tiene estos resultados de laboratorio SALUDABLES:
+{results_text}
+
+Genera exactamente 4 pasos concretos y accionables para MANTENER su buena salud.
+
+Requisitos:
+- Pasos específicos y prácticos
+- Enfocados en prevención y mantenimiento
+- Lenguaje claro y motivador
+- Formato: lista numerada (1., 2., 3., 4.)
+
+Responde SOLO con los 4 pasos, sin introducción ni conclusión."""
+        else:
+            # Contexto para resultados no saludables
+            issues_text = "\n".join(issues)
+            results_text = ", ".join([f"{k}: {v}" for k, v in results.items()])
+            prompt = f"""Eres un asistente médico virtual. El usuario tiene estos problemas detectados en sus exámenes:
+{issues_text}
+
+Valores completos: {results_text}
+
+Genera exactamente 4 pasos concretos y accionables para MEJORAR estos valores específicos.
+
+Requisitos:
+- Pasos específicos para los problemas detectados
+- Enfocados en corrección y mejora
+- Lenguaje claro y empático
+- Formato: lista numerada (1., 2., 3., 4.)
+- Incluir recomendación de consulta médica como último paso
+
+Responde SOLO con los 4 pasos, sin introducción ni conclusión."""
+        
+        # Llamar a Bedrock
+        response = bedrock_client.invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 300,
+                "messages": [{"role": "user", "content": prompt}]
+            })
+        )
+        
+        result = json.loads(response['body'].read())
+        steps = result['content'][0]['text'].strip()
+        
+        return f"\n\n**Pasos a Seguir:**\n{steps}"
+        
+    except Exception as e:
+        # Fallback: usar pasos genéricos pre-definidos si Bedrock falla
+        if is_healthy:
+            return "\n\n**Pasos a Seguir:**\n1. Mantén tus hábitos saludables actuales\n2. Programa tu próximo chequeo preventivo\n3. Continúa con actividad física regular\n4. Mantén una alimentación balanceada"
+        else:
+            return "\n\n**Pasos a Seguir:**\n1. Consulta con tu médico sobre estos resultados\n2. Sigue las recomendaciones médicas\n3. Monitorea tus valores regularmente\n4. Mantén hábitos de vida saludables"
 
 # Optimized Bianca prompt - Reduced from 120+ lines to 15 lines
 BIANCA_PROMPT = """
