@@ -1141,15 +1141,15 @@ def generate_action_steps_with_ai(results, issues, is_healthy):
             prompt = f"""Eres un asistente médico virtual. El usuario tiene estos resultados de laboratorio SALUDABLES:
 {results_text}
 
-Genera exactamente 4 pasos concretos y accionables para MANTENER su buena salud.
+Genera exactamente 4 pasos BREVES para mantener su buena salud.
 
-Requisitos:
-- Pasos específicos y prácticos
-- Enfocados en prevención y mantenimiento
-- Lenguaje claro y motivador
+Requisitos CRÍTICOS:
+- Máximo 8-10 palabras por paso
+- Lenguaje directo y accionable
+- Sin explicaciones adicionales
 - Formato: lista numerada (1., 2., 3., 4.)
 
-Responde SOLO con los 4 pasos, sin introducción ni conclusión."""
+Responde SOLO con los 4 pasos breves."""
         else:
             # Contexto para resultados no saludables
             issues_text = "\n".join(issues)
@@ -1159,23 +1159,23 @@ Responde SOLO con los 4 pasos, sin introducción ni conclusión."""
 
 Valores completos: {results_text}
 
-Genera exactamente 4 pasos concretos y accionables para MEJORAR estos valores específicos.
+Genera exactamente 4 pasos BREVES para mejorar estos valores específicos.
 
-Requisitos:
-- Pasos específicos para los problemas detectados
-- Enfocados en corrección y mejora
-- Lenguaje claro y empático
+Requisitos CRÍTICOS:
+- Máximo 8-10 palabras por paso
+- Lenguaje directo y accionable
+- Enfocados en los problemas detectados
 - Formato: lista numerada (1., 2., 3., 4.)
-- Incluir recomendación de consulta médica como último paso
+- Último paso debe ser consulta médica
 
-Responde SOLO con los 4 pasos, sin introducción ni conclusión."""
+Responde SOLO con los 4 pasos breves."""
         
         # Llamar a Bedrock
         response = bedrock_client.invoke_model(
             modelId=BEDROCK_MODEL_ID,
             body=json.dumps({
                 "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 300,
+                "max_tokens": 150,
                 "messages": [{"role": "user", "content": prompt}]
             })
         )
