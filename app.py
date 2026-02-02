@@ -114,7 +114,7 @@ MESSAGES = {
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
     'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n1. Agendar mi chequeo preventivo\n2. Quiero analizar mis resultados de exámenes\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
-    'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
+    'product_selected': "Perfecto ✅ Para agendar tu **{product_name}**, contamos con los siguientes centros médicos:",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
     'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
     'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
@@ -458,10 +458,10 @@ def handle_appointment_request():
             
         st.session_state.clinics = clinics
         
-        response = f"Tenemos estas clínicas disponibles:\n\n"
+        response = f"Contamos con los siguientes centros médicos:\n\n"
         for i, clinic in enumerate(clinics):
             response += f"{i+1}. {clinic['name']}\n"
-        response += "\n¿En cuál clínica prefieres agendar tu cita? Responde con el número de tu opción"
+        response += "\n¿En cuál clínica prefieres agendar tu cita?\nResponde con el número de tu opción."
         return response, 'selecting_clinic'
     except Exception as e:
         return handle_appointment_error(e, 'clinic_fetch')
