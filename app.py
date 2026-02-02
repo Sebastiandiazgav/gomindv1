@@ -112,13 +112,13 @@ MESSAGES = {
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
-    'login_success_menu': "¡Ingresaste con exito! Bienvenido/a {user_name}.\n\n¿Qué te gustaría hacer hoy?\n\n1. Ver productos disponibles y agendar cita\n2. Analizar mis resultados médicos\n\nQue servicio de salud desea utilizar? Responde con el número de tu opción.\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
+    'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n1. Agendar mi chequeo preventivo\n2. Quiero analizar mis resultados de exámenes\n\nLos resultados obtenidos mediante IA se basan exclusivamente en los indicadores analizados y deben entenderse como una referencia de apoyo.\nLa interpretación final y la toma de decisiones corresponden siempre al criterio profesional de los colaboradores.",
     'products_menu': "Aquí tienes los productos disponibles:\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
     'product_selected': "Has seleccionado: **{product_name}**\n\nAhora te ayudo a agendar una cita para este servicio.",
     'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
     'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
     'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
-    'code_authentication_success': "¡Perfecto! Verificación completada exitosamente.",
+    'code_authentication_success': "🎉 ¡Perfecto! Ya verifiqué tu identidad.",
     'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
     'code_error': "Error procesando el código. Por favor, intenta nuevamente:"
 }
