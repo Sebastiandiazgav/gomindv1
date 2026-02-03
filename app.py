@@ -24,7 +24,7 @@ SPANISH_WEEKDAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes']
 SPANISH_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
                   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 API_TIMEOUT = 30
-BEDROCK_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+BEDROCK_MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 BEDROCK_MAX_TOKENS = 1000
 
 # Función de análisis de intención con Bedrock
