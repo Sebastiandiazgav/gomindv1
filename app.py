@@ -1008,6 +1008,14 @@ def get_input_placeholder(stage):
     return "Escribe tu mensaje aquí..."
 
 def dispatch_conversation_stage(stage, prompt):
+    # Handle initial stage (primer mensaje del usuario)
+    if stage == 'initial':
+        # El usuario escribió algo por primera vez - mostrar mensaje de bienvenida
+        welcome_message = """👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.
+
+Ingresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad"""
+        return welcome_message, 'waiting_email'
+    
     # Handle authentication flow stages
     auth_stages = ['waiting_email', 'waiting_verification_code', 'authenticated']
     if stage in auth_stages:
@@ -1260,17 +1268,13 @@ Bianca:"""
 st.title("Chat con Bianca - Asistente de Salud GoMind")
 
 if 'stage' not in st.session_state:
-    st.session_state.stage = 'waiting_email'
+    st.session_state.stage = 'initial'
 
 if 'user_data' not in st.session_state:
     st.session_state.user_data = None
 if 'messages' not in st.session_state:
     st.session_state.messages = []
-    # Agregar mensaje de bienvenida inicial
-    welcome_message = """👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.
-
-Ingresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad"""
-    st.session_state.messages.append({"role": "assistant", "content": welcome_message})
+    # Chat empieza vacío - el mensaje de bienvenida se mostrará cuando el usuario escriba algo
 if 'context' not in st.session_state:
     st.session_state.context = ""
 if 'company_id' not in st.session_state:
