@@ -221,6 +221,18 @@ CLINIC_MAPPING = {
     "Red Salud Santiago Centro": 4
 }
 
+# Mapeo de nombres largos a nombres cortos para mostrar al usuario
+CLINIC_DISPLAY_NAMES = {
+    "Inmunomedica Concepción": "Inmunomedica Concepción",
+    "Laboratorio Blanco Santiago": "Lab. Blanco Stgo",
+    "Red Salud Santiago Centro": "Red Salud Stgo Centro",
+    "Go Mind": "Go Mind"
+}
+
+def get_short_clinic_name(full_name):
+    """Convierte el nombre completo de la clínica a su versión corta para mostrar"""
+    return CLINIC_DISPLAY_NAMES.get(full_name, full_name)
+
 def convert_spanish_date_to_iso(date_str, time_str):
     try:
         parts = date_str.split()
@@ -480,7 +492,8 @@ def handle_appointment_request():
         
         response = f"Contamos con los siguientes centros médicos:\n\n"
         for i, clinic in enumerate(clinics):
-            response += f"{i+1}. {clinic['name']}\n"
+            short_name = get_short_clinic_name(clinic['name'])
+            response += f"{i+1}. {short_name}\n"
         response += "\n¿En cuál clínica prefieres agendar tu cita?\nResponde con el número de tu opción."
         return response, 'selecting_clinic'
     except Exception as e:
