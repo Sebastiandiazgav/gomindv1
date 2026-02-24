@@ -91,10 +91,10 @@ MESSAGES = {
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
     'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n- Agendar mi cita\n- Revisa mi examen\n\nEscribe la opción que prefieras.",
-    'products_menu': "Gracias, voy a proceder a ayudarte con tu agendamiento, por favor selecciona alguno de los productos disponibles\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
+    'products_menu': "Gracias, voy a proceder a ayudarte con tu agendamiento, por favor selecciona alguno de los productos disponibles\n\n{products_list}\n¿Cuál producto te interesa? Escribe el nombre del producto.",
     'product_selected': "Perfecto ✅ Para agendar tu **{product_name}**, contamos con los siguientes centros médicos:",
     'invalid_menu_option': "No entendí tu selección. Por favor, escribe:\n- 'Agendar mi cita' para agendar una cita\n- 'Revisa mi examen' para análisis médico",
-    'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
+    'invalid_product_option': "No reconocí ese producto. Por favor, escribe el nombre de uno de los productos disponibles.",
     'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
     'code_authentication_success': "🎉 ¡Perfecto! Ya verifiqué tu identidad.",
     'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
@@ -894,30 +894,38 @@ def show_products_menu(session):
         return "No hay productos disponibles en este momento. ¿Te gustaría hacer un análisis médico en su lugar?", 'main_menu'
     
     products_list = ""
-    for i, product in enumerate(session.company_products):
+    for product in session.company_products:
         name = product.get('name', 'Producto sin nombre')
-        products_list += f"{i+1}. {name}\n"
+        products_list += f"- {name}\n"
     
     response = MESSAGES['products_menu'].format(products_list=products_list)
     return response, 'selecting_product'
 
 def handle_product_selection(prompt, session):
     """Maneja la selección de un producto específico"""
+    selected_product = None
+    
+    # Intentar primero con número (retrocompatibilidad)
     try:
         product_num = int(prompt.strip()) - 1
         if 0 <= product_num < len(session.company_products):
             selected_product = session.company_products[product_num]
-            product_name = selected_product.get('name', 'Producto seleccionado')
-            
-            session.selected_product = selected_product
-            
-            response = MESSAGES['product_selected'].format(product_name=product_name)
-            
-            appointment_response, appointment_stage = handle_appointment_request(session)
-            return f"{response}\n\n{appointment_response}", appointment_stage
-        else:
-            return MESSAGES['invalid_product_option'], 'selecting_product'
     except ValueError:
+        pass
+    
+    # Si no funcionó con número, buscar por nombre
+    if not selected_product:
+        selected_product = find_match(prompt, session.company_products)
+    
+    # Si encontró el producto
+    if selected_product:
+        product_name = selected_product.get('name', 'Producto seleccionado')
+        session.selected_product = selected_product
+        
+        response = MESSAGES['product_selected'].format(product_name=product_name)
+        appointment_response, appointment_stage = handle_appointment_request(session)
+        return f"{response}\n\n{appointment_response}", appointment_stage
+    else:
         return MESSAGES['invalid_product_option'], 'selecting_product'
 
 def start_medical_analysis(session):
