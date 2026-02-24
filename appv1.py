@@ -289,7 +289,7 @@ def find_match(prompt, items, key_func=None):
         
         text_words = text_to_compare.lower().split()
         if any(word in prompt_lower for word in text_words):
-            return item['name'] if isinstance(item, dict) and 'name' in item else item
+            return item  # Devolver el objeto completo
     
     return None
 
@@ -742,7 +742,9 @@ def handle_clinic_selection(prompt, session):
         if 0 <= clinic_num < len(clinics):
             selected_clinic = clinics[clinic_num]['name']
     except ValueError:
-        selected_clinic = find_match(prompt, clinics)
+        matched_clinic = find_match(prompt, clinics)
+        if matched_clinic:
+            selected_clinic = matched_clinic['name'] if isinstance(matched_clinic, dict) else matched_clinic
     
     if not selected_clinic:
         return MESSAGES['clinic_not_recognized'], 'selecting_clinic'
