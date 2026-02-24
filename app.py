@@ -538,10 +538,10 @@ def handle_day_selection(prompt):
     if not selected_day:
         return MESSAGES['day_not_recognized'], 'scheduling'
         
-    # Crear lista de horarios con números
+    # Crear lista de horarios sin números
     hours = [f"{h}:00" for h in range(9, 19)]
-    hours_str = "\n".join(f"{i+1}. {h}" for i, h in enumerate(hours))
-    response = f"Genial, el {selected_day} tengo disponibilidad en los siguientes horarios:\n\n{hours_str}\n\n¿A qué hora te gustaría agendar? Por favor, Responde con el número de tu opción (1-{len(hours)})."
+    hours_str = "\n".join(f"- {h}" for h in hours)
+    response = f"Genial, el {selected_day} tengo disponibilidad en los siguientes horarios:\n\n{hours_str}\n\n¿A qué hora te gustaría agendar? Escribe la hora que prefieras (ejemplo: 18:00 o 18)."
     
     # Guardar tanto el día como los horarios disponibles para referencia
     st.session_state.selected_day = selected_day
@@ -553,39 +553,40 @@ def handle_time_selection(prompt):
     
     # Obtener los horarios disponibles guardados
     available_hours = getattr(st.session_state, 'available_hours', [f"{h}:00" for h in range(9, 19)])
+    selected_hour = None
     
+    # Intentar primero como hora directa (18:00 o 18)
     try:
-        # Intentar interpretar como número de opción
-        option_num = int(user_input)
-        
-        # Validar que el número esté en el rango correcto
-        if 1 <= option_num <= len(available_hours):
-            selected_hour = available_hours[option_num - 1]
-            response = f"Perfecto, reservo para el {st.session_state.selected_day} a las {selected_hour}. ¿Confirmo tu cita?"
-            st.session_state.selected_time = selected_hour
-            return response, 'confirming'
+        if ":" in user_input:
+            hour, minute = user_input.split(":")
+            hour_num = int(hour)
+            formatted_hour = f"{hour_num}:00"
         else:
-            return f"Por favor, elige un número entre 1 y {len(available_hours)}.", 'selecting_time'
-            
+            hour_num = int(user_input)
+            formatted_hour = f"{hour_num}:00"
+        
+        # Validar que esté en el rango
+        if 9 <= hour_num <= 18:
+            selected_hour = formatted_hour
     except ValueError:
-        # Fallback: intentar interpretar como hora directa (para compatibilidad)
+        pass
+    
+    # Si no funcionó, intentar como número de opción (retrocompatibilidad)
+    if not selected_hour:
         try:
-            if ":" in user_input:
-                hour, minute = user_input.split(":")
-                hour_num = int(hour)
-            else:
-                hour_num = int(user_input)
-                user_input = f"{hour_num}:00"
-            
-            if not (9 <= hour_num <= 18):
-                return f"Esa hora no está disponible. Por favor, elige un número entre 1 y {len(available_hours)}.", 'selecting_time'
-                
-            response = f"Perfecto, reservo para el {st.session_state.selected_day} a las {user_input}. ¿Confirmo tu cita?"
-            st.session_state.selected_time = user_input
-            return response, 'confirming'
-            
+            option_num = int(user_input)
+            if 1 <= option_num <= len(available_hours):
+                selected_hour = available_hours[option_num - 1]
         except ValueError:
-            return f"Por favor, responde con el número de la opción que prefieres (1-{len(available_hours)}).", 'selecting_time'
+            pass
+    
+    # Si encontró la hora
+    if selected_hour:
+        response = f"Perfecto, reservo para el {st.session_state.selected_day} a las {selected_hour}. ¿Confirmo tu cita?"
+        st.session_state.selected_time = selected_hour
+        return response, 'confirming'
+    else:
+        return "No reconocí esa hora. Por favor, escribe una hora entre 9:00 y 18:00 (ejemplo: 18:00 o 18).", 'selecting_time'
 
 def handle_appointment_confirmation():
     try:
