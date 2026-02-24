@@ -57,10 +57,10 @@ Usuario   Email/Pass    Token JWT    Opciones de servicio
    
    ¿Qué te gustaría hacer hoy?
    
-   1. Ver productos disponibles y agendar cita
-   2. Analizar mis resultados médicos
+   - Agendar mi cita
+   - Revisa mi examen
    
-   ¿Qué servicio de salud deseas utilizar? Responde con el número de tu opción."
+   ¿Cómo te ayudamos hoy? Escribe la opción que prefieras."
    ```
 
 ### Manejo de Errores

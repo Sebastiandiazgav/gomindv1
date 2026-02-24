@@ -357,10 +357,10 @@ Stage: waiting_verification_code → main_menu
 
 ```
 Bianca: ¿Cómo te ayudamos hoy?
-1. Agendar mi chequeo preventivo
-2. Quiero analizar mis resultados de exámenes
+- Agendar mi cita
+- Revisa mi examen
 
-Usuario: 1
+Usuario: Agendar mi cita
 Stage: main_menu → selecting_product
 ```
 
