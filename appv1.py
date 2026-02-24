@@ -36,7 +36,7 @@ BEDROCK_MAX_TOKENS = 1000
 class ConversationSession:
     def __init__(self, session_id):
         self.session_id = session_id
-        self.stage = 'waiting_email'
+        self.stage = 'initial'
         self.user_data = None
         self.messages = []
         self.context = ""
@@ -90,10 +90,10 @@ MESSAGES = {
     'new_appointment_offer': "¡Perfecto! Te ayudo a agendar una nueva cita. ¿Esta cita es para revisar nuevos resultados médicos o es una consulta de seguimiento?",
     'new_appointment_start': "Excelente, iniciemos el proceso para tu nueva cita. Tenemos estas clínicas disponibles:",
     'new_appointment_medical_request': "Entiendo que necesitas una nueva cita. Para brindarte el mejor servicio, ¿podrías compartirme el ID de usuario para revisar tus resultados médicos más recientes? Esto me ayudará a determinar si necesitas una cita médica.",
-    'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n1. Agendar mi chequeo preventivo\n2. Quiero analizar mis resultados de exámenes",
+    'login_success_menu': "¡Bienvenido/a, {user_name}!\n\n¿Cómo te ayudamos hoy?\n\n- Agendar mi chequeo preventivo\n- Quiero analizar mis resultados de exámenes\n\nEscribe la opción que prefieras.",
     'products_menu': "Gracias, voy a proceder a ayudarte con tu agendamiento, por favor selecciona alguno de los productos disponibles\n\n{products_list}\n\n¿Cuál producto te interesa? Responde con el número de tu opción.",
     'product_selected': "Perfecto ✅ Para agendar tu **{product_name}**, contamos con los siguientes centros médicos:",
-    'invalid_menu_option': "Por favor, responde con **1** para ver productos o **2** para análisis médico.",
+    'invalid_menu_option': "No entendí tu selección. Por favor, escribe:\n- 'Agendar mi chequeo preventivo' para agendar una cita\n- 'Quiero analizar mis resultados de exámenes' para análisis médico",
     'invalid_product_option': "Por favor, elige un número válido de la lista de productos.",
     'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
     'code_authentication_success': "🎉 ¡Perfecto! Ya verifiqué tu identidad.",
@@ -872,11 +872,18 @@ def handle_appointment_flow(stage, prompt, session):
 
 def handle_main_menu_selection(prompt, session):
     """Maneja la selección del menú principal después del login"""
-    user_choice = prompt.strip()
+    user_choice = prompt.strip().lower()
     
-    if user_choice == '1':
+    # Palabras clave para opción 1: Agendar chequeo preventivo
+    agendar_keywords = ['agendar', 'chequeo', 'preventivo', 'cita', 'producto']
+    
+    # Palabras clave para opción 2: Analizar resultados
+    analizar_keywords = ['analizar', 'resultado', 'examen', 'examenes', 'exámenes', 'médico', 'medico']
+    
+    # Detectar intención por palabras clave
+    if any(keyword in user_choice for keyword in agendar_keywords):
         return show_products_menu(session)
-    elif user_choice == '2':
+    elif any(keyword in user_choice for keyword in analizar_keywords):
         return start_medical_analysis(session)
     else:
         return MESSAGES['invalid_menu_option'], 'main_menu'
@@ -1031,6 +1038,14 @@ def handle_authentication_flow(stage, prompt, session):
 # ============================================
 def dispatch_conversation_stage(stage, prompt, session):
     """Dispatcher principal que maneja todos los stages de la conversación"""
+    
+    # Handle initial stage (primer mensaje del usuario)
+    if stage == 'initial':
+        # El usuario escribió algo por primera vez - mostrar mensaje de bienvenida
+        welcome_message = """👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.
+
+Ingresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad"""
+        return welcome_message, 'waiting_email'
     
     # Handle authentication flow stages
     auth_stages = ['waiting_email', 'waiting_verification_code', 'authenticated']
