@@ -21,6 +21,7 @@ API_PASSWORD = st.secrets["api"]["PASSWORD"]
 
 # Constantes centralizadas
 SPANISH_WEEKDAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes']
+SPANISH_WEEKDAYS_SHORT = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie']
 SPANISH_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
                   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 API_TIMEOUT = 30
@@ -388,11 +389,12 @@ def get_user_info():
     return {'id': None, 'name': 'Usuario'}
 
 def format_spanish_date(date_obj):
-    """Formatea una fecha en español"""
-    day_name = SPANISH_WEEKDAYS[date_obj.weekday()]
+    """Formatea una fecha en español en formato corto: Mie 25/02/2026"""
+    day_name = SPANISH_WEEKDAYS_SHORT[date_obj.weekday()]
     day_num = date_obj.day
-    month_name = SPANISH_MONTHS[date_obj.month - 1]
-    return f"{day_name} {day_num} de {month_name}"
+    month_num = date_obj.month
+    year = date_obj.year
+    return f"{day_name} {day_num:02d}/{month_num:02d}/{year}"
 
 def handle_appointment_error(error, error_type='general'):
     if error_type == 'clinic_fetch':
@@ -1182,7 +1184,7 @@ Requisitos CRÍTICOS:
 - Máximo 8-10 palabras por paso
 - Lenguaje directo y accionable
 - Sin explicaciones adicionales
-- Formato: lista numerada (1., 2., 3., 4.)
+- Formato: lista con guiones (-, -, -, -)
 
 Responde SOLO con los 4 pasos breves."""
         else:
@@ -1200,7 +1202,7 @@ Requisitos CRÍTICOS:
 - Máximo 8-10 palabras por paso
 - Lenguaje directo y accionable
 - Enfocados en los problemas detectados
-- Formato: lista numerada (1., 2., 3., 4.)
+- Formato: lista con guiones (-, -, -, -)
 - Último paso debe ser consulta médica
 
 Responde SOLO con los 4 pasos breves."""
@@ -1223,9 +1225,9 @@ Responde SOLO con los 4 pasos breves."""
     except Exception as e:
         # Fallback: usar pasos genéricos pre-definidos si Bedrock falla
         if is_healthy:
-            return "\n\n**Pasos a Seguir:**\n1. Mantén tus hábitos saludables actuales\n2. Programa tu próximo chequeo preventivo\n3. Continúa con actividad física regular\n4. Mantén una alimentación balanceada"
+            return "\n\n**Pasos a Seguir:**\n- Mantén tus hábitos saludables actuales\n- Programa tu próximo chequeo preventivo\n- Continúa con actividad física regular\n- Mantén una alimentación balanceada"
         else:
-            return "\n\n**Pasos a Seguir:**\n1. Consulta con tu médico sobre estos resultados\n2. Sigue las recomendaciones médicas\n3. Monitorea tus valores regularmente\n4. Mantén hábitos de vida saludables"
+            return "\n\n**Pasos a Seguir:**\n- Consulta con tu médico sobre estos resultados\n- Sigue las recomendaciones médicas\n- Monitorea tus valores regularmente\n- Mantén hábitos de vida saludables"
 
 # Optimized Bianca prompt - Reduced from 120+ lines to 15 lines
 BIANCA_PROMPT = """
