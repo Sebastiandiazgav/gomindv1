@@ -742,7 +742,7 @@ def handle_appointment_request(session):
         response = f"Contamos con los siguientes centros médicos:\n\n"
         for i, clinic in enumerate(clinics):
             short_name = get_short_clinic_name(clinic['name'])
-            response += f"{i+1}. {short_name}\n"
+            response += f"{i+1}. {short_name} - $$Horario de atención de 9:00 a 18:00 hrs\n"
         response += "\n¿En cuál clínica prefieres agendar tu cita?\nResponde con el número de tu opción."
         return response, 'selecting_clinic'
     except Exception as e:
