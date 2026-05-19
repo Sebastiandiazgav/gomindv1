@@ -1474,34 +1474,6 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# File uploader para subida de exámenes PDF
-if st.session_state.stage == 'waiting_file_upload':
-    uploaded_file = st.file_uploader("Sube tu examen en PDF", type=['pdf'], key="exam_upload")
-    
-    if uploaded_file is not None:
-        with st.spinner("⏳ Estoy procesando tu examen, un momento por favor..."):
-            try:
-                analysis, error = process_uploaded_examination(
-                    uploaded_file.getvalue(),
-                    uploaded_file.name
-                )
-                
-                if analysis:
-                    response, new_stage = generate_examination_response(analysis)
-                    st.session_state.stage = new_stage
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-                else:
-                    error_response = f"Lo siento, no pudimos procesar tu examen: {error}\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
-                    st.session_state.stage = 'selecting_lab'
-                    st.session_state.messages.append({"role": "assistant", "content": error_response})
-                
-                st.rerun()
-            except Exception as e:
-                error_response = f"Lo siento, hubo un problema subiendo tu examen. Por favor, verifica que el archivo sea un PDF válido e intenta nuevamente.\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
-                st.session_state.stage = 'selecting_lab'
-                st.session_state.messages.append({"role": "assistant", "content": error_response})
-                st.rerun()
-
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
     # Prevenir procesamiento duplicado básico
@@ -1525,3 +1497,33 @@ if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="c
             st.session_state.messages.append({"role": "assistant", "content": response})
             with st.chat_message("assistant"):
                 st.markdown(response)
+
+# File uploader para subida de exámenes PDF (aparece después del chat como parte de la conversación)
+if st.session_state.stage == 'waiting_file_upload':
+    with st.chat_message("assistant"):
+        st.markdown("📎 **Sube tu archivo aquí:**")
+        uploaded_file = st.file_uploader("Sube tu examen en PDF", type=['pdf'], key="exam_upload")
+        
+        if uploaded_file is not None:
+            with st.spinner("⏳ Estoy procesando tu examen, un momento por favor..."):
+                try:
+                    analysis, error = process_uploaded_examination(
+                        uploaded_file.getvalue(),
+                        uploaded_file.name
+                    )
+                    
+                    if analysis:
+                        response, new_stage = generate_examination_response(analysis)
+                        st.session_state.stage = new_stage
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                    else:
+                        error_response = f"Lo siento, no pudimos procesar tu examen: {error}\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
+                        st.session_state.stage = 'selecting_lab'
+                        st.session_state.messages.append({"role": "assistant", "content": error_response})
+                    
+                    st.rerun()
+                except Exception as e:
+                    error_response = "Lo siento, hubo un problema subiendo tu examen. Por favor, verifica que el archivo sea un PDF válido e intenta nuevamente.\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
+                    st.session_state.stage = 'selecting_lab'
+                    st.session_state.messages.append({"role": "assistant", "content": error_response})
+                    st.rerun()
