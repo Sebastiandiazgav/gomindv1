@@ -928,20 +928,162 @@ def handle_product_selection(prompt):
         return MESSAGES['invalid_product_option'], 'selecting_product'
 
 def start_medical_analysis():
-    """Inicia el flujo de análisis médico (opción 2)"""
-    # Verificar si ya tenemos datos del usuario autenticado
-    if (hasattr(st.session_state, 'user_data') and 
-        st.session_state.user_data and 
-        st.session_state.user_data.get('id')):
-        
-        # Usar datos existentes - análisis automático
-        user_id = st.session_state.user_data['id']
-        user_name = st.session_state.user_data.get('name', 'Usuario')
-        
-        return process_medical_results(user_id, user_name)
+    """Inicia el flujo de análisis médico - selección de laboratorio"""
+    response = "¿Selecciona el laboratorio donde se realizó el examen?\n\n"
+    response += "- Lab. Blanco\n"
+    response += "- Otro\n\n"
+    response += "Escribe la opción que prefieras."
+    return response, 'selecting_lab'
+
+def handle_lab_selection(prompt):
+    """Maneja la selección del laboratorio"""
+    user_choice = prompt.strip().lower()
+    
+    lab_blanco_keywords = ['lab', 'blanco']
+    otro_keywords = ['otro', 'otros', 'diferente']
+    
+    if any(keyword in user_choice for keyword in lab_blanco_keywords):
+        return "Por favor, sube el archivo PDF de tu examen para continuar.", 'waiting_file_upload'
+    elif any(keyword in user_choice for keyword in otro_keywords):
+        return "Para otros laboratorios visita nuestro sitio web: https://bianca.gomind.cl\n\n¿Hay algo más en lo que pueda ayudarte?", 'completed'
     else:
-        # Fallback: pedir ID si no tenemos datos (no debería pasar)
-        return "Para analizar tus resultados médicos, por favor ingresa tu número de identificación:", 'authenticated'
+        return "No entendí tu selección. Por favor, escribe:\n- 'Lab. Blanco' si tu examen es de Lab. Blanco\n- 'Otro' para otros laboratorios", 'selecting_lab'
+
+def upload_examination(file_bytes, filename):
+    """Sube el PDF al endpoint de examinations"""
+    token = st.session_state.auth_token
+    url = f"{API_BASE_URL}/api/examinations/upload"
+    headers = {"Authorization": f"Bearer {token}"}
+    files = {"file": (filename, file_bytes, "application/pdf")}
+    
+    response = requests.post(url, headers=headers, files=files, timeout=60)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Error subiendo examen: {response.status_code} - {response.text}")
+
+def check_job_status(job_id):
+    """Consulta el estado del job de procesamiento"""
+    token = st.session_state.auth_token
+    url = f"{API_BASE_URL}/api/examinations/job/{job_id}"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = requests.get(url, headers=headers, timeout=30)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Error consultando job: {response.status_code} - {response.text}")
+
+def get_examination_analysis(job_id):
+    """Obtiene el análisis del examen procesado"""
+    token = st.session_state.auth_token
+    url = f"{API_BASE_URL}/api/examinations/analysis-job/{job_id}"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = requests.get(url, headers=headers, timeout=30)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Error obteniendo análisis: {response.status_code} - {response.text}")
+
+def process_uploaded_examination(file_bytes, filename):
+    """Orquesta el flujo completo: upload → polling → análisis"""
+    import time
+    
+    # Paso 1: Subir archivo
+    upload_result = upload_examination(file_bytes, filename)
+    job_id = upload_result['job_id']
+    
+    # Paso 2: Polling hasta Completado (max 2 minutos)
+    max_attempts = 120
+    for attempt in range(max_attempts):
+        time.sleep(1)
+        job_status = check_job_status(job_id)
+        
+        status = job_status.get('status', '')
+        if status in ['Completado', 'Completed', 'completed', 'completado']:
+            # Paso 3: Verificar success
+            job_response = job_status.get('response', {})
+            if job_response.get('success', False):
+                # Paso 4: Obtener análisis
+                analysis = get_examination_analysis(job_id)
+                return analysis, None
+            else:
+                error_msg = job_response.get('error_message', 'No se pudo procesar el examen')
+                return None, error_msg
+    
+    return None, "El procesamiento está tardando más de lo esperado. Por favor, intenta nuevamente en unos minutos."
+
+def generate_examination_response(analysis_data):
+    """Genera la respuesta con los resultados del análisis del PDF"""
+    metadata = analysis_data.get('metadata', {})
+    params_found = analysis_data.get('parameters_found', [])
+    params_out_of_range = analysis_data.get('parameters_out_of_range', [])
+    
+    total_params = metadata.get('parameters_found_count', len(params_found))
+    out_of_range_count = metadata.get('parameters_out_of_range_count', len(params_out_of_range))
+    
+    user_name = "Usuario"
+    if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
+        user_name = st.session_state.user_data.get('name', 'Usuario')
+    
+    if out_of_range_count == 0:
+        # Todos los parámetros están bien
+        results_text = ""
+        for p in params_found:
+            value = p['analysis'][0]['value'] if p.get('analysis') else 'N/A'
+            unit = p.get('unit_of_measure', '')
+            results_text += f"- {p['name']}: {value} {unit}\n"
+        
+        response = f"¡{user_name}! Gracias por compartir tu examen. Me da gusto poder revisarlo contigo.\n\n"
+        response += f"¡Excelente noticia! Se encontraron {total_params} parámetros y todos están dentro del rango saludable:\n\n{results_text}"
+        
+        # Generar pasos con IA
+        results_dict = {}
+        for p in params_found:
+            try:
+                val = float(p['analysis'][0]['value']) if p.get('analysis') else 0
+                results_dict[p['name']] = val
+            except (ValueError, IndexError):
+                pass
+        
+        action_steps = generate_action_steps_with_ai(results_dict, [], is_healthy=True)
+        response += action_steps
+        response += MESSAGES['disclaimer']
+        
+        return response, 'completed'
+    else:
+        # Hay parámetros fuera de rango
+        issues_text = ""
+        for p in params_out_of_range:
+            value = p['analysis'][0]['value'] if p.get('analysis') else 'N/A'
+            unit = p.get('unit_of_measure', '')
+            ranges = ', '.join(p['analysis'][0].get('reference_ranges', [])) if p.get('analysis') else 'N/A'
+            issues_text += f"- {p['name']}: {value} {unit} (Rango referencia: {ranges})\n"
+        
+        response = f"¡{user_name}! Gracias por compartir tu examen. He revisado tus resultados.\n\n"
+        response += f"Se encontraron {total_params} parámetros, de los cuales {out_of_range_count} están fuera de rango:\n\n{issues_text}"
+        
+        # Generar pasos con IA
+        results_dict = {}
+        issues_list = []
+        for p in params_out_of_range:
+            try:
+                val = float(p['analysis'][0]['value']) if p.get('analysis') else 0
+                results_dict[p['name']] = val
+                issues_list.append(f"{p['name']} fuera de rango: {p['analysis'][0]['value']}")
+            except (ValueError, IndexError):
+                pass
+        
+        action_steps = generate_action_steps_with_ai(results_dict, issues_list, is_healthy=False)
+        response += action_steps
+        response += MESSAGES['disclaimer']
+        response += f"\n\n{MESSAGES['appointment_question']}"
+        
+        return response, 'analyzing'
 
 def handle_authentication_flow(stage, prompt):
     if stage == 'waiting_email':
@@ -1072,6 +1214,14 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
     # Handle main menu selection
     if stage == 'main_menu':
         return handle_main_menu_selection(prompt)
+    
+    # Handle lab selection for examination
+    if stage == 'selecting_lab':
+        return handle_lab_selection(prompt)
+    
+    # Handle file upload stage (text input while waiting for file)
+    if stage == 'waiting_file_upload':
+        return "Por favor, sube el archivo PDF de tu examen usando el botón de carga que aparece abajo.", 'waiting_file_upload'
     
     # Handle product selection
     if stage == 'selecting_product':
@@ -1323,6 +1473,34 @@ if 'user_profile' not in st.session_state:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+
+# File uploader para subida de exámenes PDF
+if st.session_state.stage == 'waiting_file_upload':
+    uploaded_file = st.file_uploader("Sube tu examen en PDF", type=['pdf'], key="exam_upload")
+    
+    if uploaded_file is not None:
+        with st.spinner("⏳ Estoy procesando tu examen, un momento por favor..."):
+            try:
+                analysis, error = process_uploaded_examination(
+                    uploaded_file.getvalue(),
+                    uploaded_file.name
+                )
+                
+                if analysis:
+                    response, new_stage = generate_examination_response(analysis)
+                    st.session_state.stage = new_stage
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                else:
+                    error_response = f"Lo siento, no pudimos procesar tu examen: {error}\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
+                    st.session_state.stage = 'selecting_lab'
+                    st.session_state.messages.append({"role": "assistant", "content": error_response})
+                
+                st.rerun()
+            except Exception as e:
+                error_response = f"Lo siento, hubo un problema subiendo tu examen. Por favor, verifica que el archivo sea un PDF válido e intenta nuevamente.\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
+                st.session_state.stage = 'selecting_lab'
+                st.session_state.messages.append({"role": "assistant", "content": error_response})
+                st.rerun()
 
 # Unified conversation flow using dispatcher pattern
 if prompt := st.chat_input(get_input_placeholder(st.session_state.stage), key="chat_widget"):
