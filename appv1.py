@@ -334,7 +334,17 @@ def format_spanish_date(date_obj):
 def convert_spanish_date_to_iso(date_str, time_str):
     try:
         parts = date_str.split()
-        if len(parts) >= 4 and parts[2] == 'de':
+        
+        # Formato nuevo: "Mie 20/05/2026"
+        if len(parts) == 2 and '/' in parts[1]:
+            date_part = parts[1]  # "20/05/2026"
+            day, month, year = map(int, date_part.split('/'))
+            hour, minute = map(int, time_str.split(':'))
+            dt = datetime(year, month, day, hour, minute, 0)
+            return dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        
+        # Formato viejo: "Miercoles 25 de febrero" (retrocompatibilidad)
+        elif len(parts) >= 4 and parts[2] == 'de':
             day = int(parts[1])
             month_name = parts[3].lower()
 
@@ -356,6 +366,8 @@ def convert_spanish_date_to_iso(date_str, time_str):
 
             iso_string = dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
             return iso_string
+        else:
+            raise ValueError(f"Formato de fecha no reconocido: {date_str}")
 
     except Exception as e:
         raise ValueError(f"Error convirtiendo fecha: {date_str} {time_str} - {str(e)}")
