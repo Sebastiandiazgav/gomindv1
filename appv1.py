@@ -2,6 +2,7 @@ import os
 import json
 import re
 import boto3
+import threading
 from datetime import datetime, timedelta
 import requests
 from dotenv import load_dotenv
@@ -21,6 +22,11 @@ bedrock_client = boto3.client(
 API_BASE_URL = os.getenv("API_BASE_URL")
 API_EMAIL = os.getenv("API_EMAIL")
 API_PASSWORD = os.getenv("API_PASSWORD")
+
+# Credenciales de Twilio para descarga de archivos y mensajes proactivos
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+14155238886")
 
 # Constantes centralizadas
 SPANISH_WEEKDAYS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes']
@@ -1020,6 +1026,55 @@ def get_examination_analysis(job_id, token):
     else:
         raise Exception(f"Error obteniendo análisis: {response.status_code} - {response.text}")
 
+def download_twilio_media(media_url):
+    """Descarga un archivo desde la URL de Twilio"""
+    response = requests.get(
+        media_url,
+        auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+        timeout=30
+    )
+    if response.status_code == 200:
+        return response.content
+    else:
+        raise Exception(f"Error descargando archivo de Twilio: {response.status_code}")
+
+def send_whatsapp_message(to_number, message):
+    """Envía un mensaje proactivo por WhatsApp usando la API de Twilio"""
+    from twilio.rest import Client
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    client.messages.create(
+        body=message,
+        from_=TWILIO_WHATSAPP_NUMBER,
+        to=to_number
+    )
+
+def process_exam_background(from_number, file_bytes, token):
+    """Procesa el examen en background y envía resultado por WhatsApp"""
+    session = get_or_create_session(from_number)
+    
+    try:
+        analysis, error = process_uploaded_examination(file_bytes, 'examen.pdf', token)
+        
+        if analysis:
+            response_text, new_stage = generate_examination_response(analysis, session)
+        else:
+            response_text = f"Lo siento, no pudimos procesar tu examen: {error}\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
+            new_stage = 'selecting_lab'
+        
+        session.stage = new_stage
+        session.messages.append({"role": "assistant", "content": response_text})
+        save_session(session)
+        
+        # Enviar mensaje proactivo con los resultados
+        send_whatsapp_message(from_number, response_text)
+        
+    except Exception as e:
+        error_response = "Lo siento, hubo un problema procesando tu examen. Por favor, verifica que el archivo sea un PDF válido e intenta nuevamente.\n\n¿Te gustaría intentarlo nuevamente? Escribe 'Lab. Blanco' para subir otro archivo."
+        session.stage = 'selecting_lab'
+        session.messages.append({"role": "assistant", "content": error_response})
+        save_session(session)
+        send_whatsapp_message(from_number, error_response)
+
 def process_uploaded_examination(file_bytes, filename, token):
     """Orquesta el flujo completo: upload → polling → análisis"""
     import time
@@ -1372,9 +1427,49 @@ if __name__ == '__main__':
     def twilio_webhook():
         """Webhook para recibir mensajes de Twilio"""
         from_number = request.form.get('From')
-        message_body = request.form.get('Body')
+        message_body = request.form.get('Body', '').strip()
+        num_media = int(request.form.get('NumMedia', 0))
         
-        # Procesar mensaje
+        # Obtener sesión
+        session = get_or_create_session(from_number)
+        
+        # Verificar si hay archivo adjunto y estamos esperando un PDF
+        if num_media > 0 and session.stage == 'waiting_file_upload':
+            media_type = request.form.get('MediaContentType0', '')
+            media_url = request.form.get('MediaUrl0', '')
+            
+            if media_type == 'application/pdf':
+                try:
+                    # Descargar archivo desde Twilio
+                    file_bytes = download_twilio_media(media_url)
+                    
+                    # Actualizar stage y guardar
+                    session.stage = 'processing_examination'
+                    session.messages.append({"role": "user", "content": "[Archivo PDF enviado]"})
+                    save_session(session)
+                    
+                    # Iniciar procesamiento en background
+                    thread = threading.Thread(
+                        target=process_exam_background,
+                        args=(from_number, file_bytes, session.auth_token)
+                    )
+                    thread.start()
+                    
+                    # Responder inmediatamente
+                    resp = MessagingResponse()
+                    resp.message("⏳ Estoy procesando tu examen, un momento por favor...")
+                    return str(resp)
+                    
+                except Exception as e:
+                    resp = MessagingResponse()
+                    resp.message("Lo siento, hubo un problema descargando tu archivo. Por favor, intenta enviarlo nuevamente.")
+                    return str(resp)
+            else:
+                resp = MessagingResponse()
+                resp.message("Por favor, envía el archivo en formato PDF.")
+                return str(resp)
+        
+        # Flujo normal de texto
         result = process_message(from_number, message_body)
         
         # Responder a Twilio
