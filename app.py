@@ -1281,13 +1281,8 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                 if farewell_intent == 'DESPEDIDA':
                     return generate_farewell_response(), 'conversation_ended'
                 
-                # Si no es despedida explícita, verificar si quiere EXPLÍCITAMENTE otra cita
-                intent = analyze_user_intent(prompt, 'completed')
-                if intent == 'NUEVA_CITA':
-                    return handle_new_appointment_request(prompt)
-                else:
-                    # Cualquier otra cosa después de cita confirmada = despedida amigable
-                    return generate_farewell_response(), 'conversation_ended'
+                # Cualquier otra cosa después de cita confirmada = preguntar nueva cita
+                return handle_new_appointment_request(prompt)
             else:
                 # Flujo normal: no hay cita confirmada reciente
                 farewell_intent = analyze_farewell_intent(prompt)
@@ -1307,10 +1302,22 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                 return f"No estoy segura de cómo ayudarte con eso. ¿Te gustaría volver al menú principal?\n\n{MESSAGES['login_success_menu'].format(user_name=user_name)}", 'main_menu'
         
         if stage == 'conversation_ended':
-            # Si el usuario saluda, reiniciar flujo
+            # Verificar si la despedida fue después de una cita confirmada
+            last_assistant_msg = ""
+            for msg in reversed(st.session_state.messages):
+                if msg["role"] == "assistant":
+                    last_assistant_msg = msg["content"]
+                    break
+            
+            # Si la despedida fue post-cita → Preguntar por nueva cita
+            post_cita = "cita del" in last_assistant_msg or "haber podido ayudarte" in last_assistant_msg
+            
+            if post_cita:
+                return handle_new_appointment_request(prompt)
+            
+            # Si no fue post-cita, verificar saludo para reiniciar
             saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
             if any(saludo in prompt.lower() for saludo in saludos):
-                # Verificar si el token sigue activo
                 if hasattr(st.session_state, 'auth_token') and st.session_state.auth_token:
                     user_name = "Usuario"
                     if hasattr(st.session_state, 'user_data') and st.session_state.user_data:

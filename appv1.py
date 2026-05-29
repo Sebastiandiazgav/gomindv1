@@ -1361,18 +1361,19 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                 if farewell_intent == 'DESPEDIDA':
                     return generate_farewell_response(session), 'conversation_ended'
                 
-                # Si no es despedida explícita, verificar si quiere EXPLÍCITAMENTE otra cita
-                intent = analyze_user_intent(prompt, 'completed')
-                if intent == 'NUEVA_CITA':
-                    session.selected_clinic = None
-                    session.selected_day = None
-                    session.selected_time = None
-                    session.clinics = None
-                    session.next_days = None
-                    return handle_appointment_request(session)
-                else:
-                    # Cualquier otra cosa después de cita confirmada = despedida amigable
-                    return generate_farewell_response(session), 'conversation_ended'
+                # Cualquier otra cosa después de cita confirmada = preguntar nueva cita
+                session.selected_clinic = None
+                session.selected_day = None
+                session.selected_time = None
+                session.clinics = None
+                session.next_days = None
+                
+                user_name = "Usuario"
+                if session.user_data:
+                    user_name = session.user_data.get('name', 'Usuario')
+                
+                response = f"""¿Para quién quieres agendar la nueva cita?\n\n1. Mismo usuario ({user_name})\n2. Cambiar de usuario\n\nPor favor, responde con el número de tu opción."""
+                return response, 'selecting_user_for_new_appointment'
             else:
                 # Flujo normal: no hay cita confirmada reciente
                 farewell_intent = analyze_farewell_intent(prompt, session)
@@ -1397,10 +1398,33 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                 return f"No estoy segura de cómo ayudarte con eso. Te muestro las opciones disponibles:\n\n{MESSAGES['login_success_menu'].format(user_name=user_name)}", 'main_menu'
         
         if stage == 'conversation_ended':
-            # Si el usuario saluda, reiniciar flujo
+            # Verificar si la despedida fue después de una cita confirmada
+            last_assistant_msg = ""
+            for msg in reversed(session.messages):
+                if msg["role"] == "assistant":
+                    last_assistant_msg = msg["content"]
+                    break
+            
+            # Si la despedida fue post-cita → Preguntar por nueva cita
+            post_cita = "cita del" in last_assistant_msg or "haber podido ayudarte" in last_assistant_msg
+            
+            if post_cita:
+                session.selected_clinic = None
+                session.selected_day = None
+                session.selected_time = None
+                session.clinics = None
+                session.next_days = None
+                
+                user_name = "Usuario"
+                if session.user_data:
+                    user_name = session.user_data.get('name', 'Usuario')
+                
+                response = f"""¿Para quién quieres agendar la nueva cita?\n\n1. Mismo usuario ({user_name})\n2. Cambiar de usuario\n\nPor favor, responde con el número de tu opción."""
+                return response, 'selecting_user_for_new_appointment'
+            
+            # Si no fue post-cita, verificar saludo para reiniciar
             saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
             if any(saludo in prompt.lower() for saludo in saludos):
-                # Verificar si el token sigue activo
                 if session.auth_token:
                     user_name = "Usuario"
                     if session.user_data:
