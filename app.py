@@ -25,7 +25,7 @@ SPANISH_WEEKDAYS_SHORT = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie']
 SPANISH_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
                   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 API_TIMEOUT = 30
-BEDROCK_MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 BEDROCK_MAX_TOKENS = 1000
 
 # Función de análisis de intención con Bedrock
@@ -1258,23 +1258,54 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
             return response, new_stage
         
         if stage == 'completed':
-            # Check if user wants a new appointment
-            intent = analyze_user_intent(prompt, 'completed')
-            if intent in ['NUEVA_CITA', 'POSITIVA']:
-                return handle_new_appointment_request(prompt)
-            elif intent == 'NEGATIVA':
-                # Si dice "no" después de cita confirmada, interpretar como despedida
+            # Obtener contexto del último mensaje del asistente
+            last_assistant_msg = ""
+            for msg in reversed(st.session_state.messages):
+                if msg["role"] == "assistant":
+                    last_assistant_msg = msg["content"]
+                    break
+            
+            # Verificar si la cita ya fue confirmada recientemente
+            cita_confirmada = "cita quedó confirmada" in last_assistant_msg or "registrada correctamente" in last_assistant_msg
+            
+            if cita_confirmada:
+                # Después de confirmar cita: priorizar despedida
                 farewell_intent = analyze_farewell_intent(prompt)
                 if farewell_intent == 'DESPEDIDA':
                     return generate_farewell_response(), 'conversation_ended'
+                
+                # Si no es despedida explícita, verificar si quiere EXPLÍCITAMENTE otra cita
+                intent = analyze_user_intent(prompt, 'completed')
+                if intent == 'NUEVA_CITA':
+                    return handle_new_appointment_request(prompt)
                 else:
+                    # Cualquier otra cosa después de cita confirmada = despedida amigable
                     return generate_farewell_response(), 'conversation_ended'
-
-            # Usar conversación contextual mejorada
-            return handle_contextual_conversation(prompt)
+            else:
+                # Flujo normal: no hay cita confirmada reciente
+                intent = analyze_user_intent(prompt, 'completed')
+                if intent in ['NUEVA_CITA', 'POSITIVA']:
+                    return handle_new_appointment_request(prompt)
+                elif intent == 'NEGATIVA':
+                    farewell_intent = analyze_farewell_intent(prompt)
+                    if farewell_intent == 'DESPEDIDA':
+                        return generate_farewell_response(), 'conversation_ended'
+                    else:
+                        return generate_farewell_response(), 'conversation_ended'
+                
+                # Usar conversación contextual mejorada
+                return handle_contextual_conversation(prompt)
         
         if stage == 'conversation_ended':
-            # Usuario ya se despidió, mantener conversación cerrada pero amigable
+            # Si el usuario saluda, volver al menú principal
+            saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
+            if any(saludo in prompt.lower() for saludo in saludos):
+                user_name = "Usuario"
+                if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
+                    user_name = st.session_state.user_data.get('name', 'Usuario')
+                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
+            
+            # Si no es saludo, mantener conversación cerrada
             return "¡Que tengas un excelente día! Si necesitas algo más, estaré aquí para ayudarte.", 'conversation_ended'
         
         if stage == 'waiting_json':
