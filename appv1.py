@@ -260,7 +260,9 @@ def get_user_results(token):
     
     response = requests.get(url, headers=headers)
     
-    if response.status_code == 200:
+    if response.status_code == 401:
+        raise Exception("SESSION_EXPIRED")
+    elif response.status_code == 200:
         data = response.json()
         if isinstance(data, list):
             if len(data) == 0:
@@ -1373,6 +1375,10 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                     return generate_farewell_response(session), 'conversation_ended'
             else:
                 # Flujo normal: no hay cita confirmada reciente
+                farewell_intent = analyze_farewell_intent(prompt, session)
+                if farewell_intent == 'DESPEDIDA':
+                    return generate_farewell_response(session), 'conversation_ended'
+                
                 intent = analyze_user_intent(prompt, 'completed')
                 if intent in ['NUEVA_CITA', 'POSITIVA']:
                     session.selected_clinic = None
@@ -1382,31 +1388,42 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                     session.next_days = None
                     return handle_appointment_request(session)
                 elif intent == 'NEGATIVA':
-                    farewell_intent = analyze_farewell_intent(prompt, session)
-                    if farewell_intent == 'DESPEDIDA':
-                        return generate_farewell_response(session), 'conversation_ended'
-                    else:
-                        return generate_farewell_response(session), 'conversation_ended'
+                    return generate_farewell_response(session), 'conversation_ended'
                 
-                return handle_contextual_conversation(prompt, session)
-        
-        if stage == 'conversation_ended':
-            # Si el usuario saluda, volver al menú principal
-            saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
-            if any(saludo in prompt.lower() for saludo in saludos):
+                # En lugar de conversación libre, redirigir al menú principal
                 user_name = "Usuario"
                 if session.user_data:
                     user_name = session.user_data.get('name', 'Usuario')
-                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
+                return f"No estoy segura de cómo ayudarte con eso. Te muestro las opciones disponibles:\n\n{MESSAGES['login_success_menu'].format(user_name=user_name)}", 'main_menu'
+        
+        if stage == 'conversation_ended':
+            # Si el usuario saluda, reiniciar flujo
+            saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
+            if any(saludo in prompt.lower() for saludo in saludos):
+                # Verificar si el token sigue activo
+                if session.auth_token:
+                    user_name = "Usuario"
+                    if session.user_data:
+                        user_name = session.user_data.get('name', 'Usuario')
+                    return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
+                else:
+                    return "👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.\n\nIngresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad", 'waiting_email'
             
             # Si no es saludo, mantener conversación cerrada
-            return "¡Que tengas un excelente día! Si necesitas algo más, estaré aquí para ayudarte.", 'conversation_ended'
+            return "¡Que tengas un excelente día! Si necesitas algo más, solo escribe **hola** y te ayudo.", 'conversation_ended'
         
         if stage == 'waiting_json':
             return "El formato JSON no es válido. Por favor, comparte tus resultados en formato JSON válido, ejemplo: {\"Glicemia Basal\": 90, \"Hemoglobina\": 13}", 'waiting_json'
     
-    # Default fallback - use contextual conversation
-    return handle_contextual_conversation(prompt, session)
+    # Default fallback - redirigir al menú principal en lugar de conversación libre
+    user_name = "Usuario"
+    if session.user_data:
+        user_name = session.user_data.get('name', 'Usuario')
+    
+    if session.auth_token:
+        return f"No estoy segura de cómo ayudarte con eso. Te muestro las opciones disponibles:\n\n{MESSAGES['login_success_menu'].format(user_name=user_name)}", 'main_menu'
+    else:
+        return "👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.\n\nIngresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad", 'waiting_email'
 
 # ============================================
 # FUNCIÓN PRINCIPAL PARA TWILIO

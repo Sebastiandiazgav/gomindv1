@@ -328,7 +328,11 @@ def get_user_results(user_id):
     
     response = requests.get(url, headers=headers)
     
-    if response.status_code == 200:
+    if response.status_code == 401:
+        # Token expirado - limpiar sesión
+        st.session_state.auth_token = None
+        raise Exception("SESSION_EXPIRED")
+    elif response.status_code == 200:
         data = response.json()
         if isinstance(data, list):
             if len(data) == 0:
@@ -474,7 +478,10 @@ def process_medical_results(user_id, user_name="Usuario"):
             
     except Exception as e:
         error_msg = str(e)
-        if "Paciente no identificado" in error_msg:
+        if "SESSION_EXPIRED" in error_msg:
+            st.session_state.auth_token = None
+            return "Tu sesión ha expirado. Por favor, ingresa tu correo electrónico nuevamente para continuar:", 'waiting_email'
+        elif "Paciente no identificado" in error_msg:
             return f"Lo siento, no se logró identificar al paciente con el ID {user_id}. Verifica que el número sea correcto o contacta a soporte. ¿Hay algo más en lo que pueda ayudarte?", 'completed'
         else:
             return f"Error obteniendo resultados de la API: {error_msg}. ¿Puedes compartir tus resultados médicos en formato JSON? Ejemplo: {{\"Glicemia Basal\": 90, \"Hemoglobina\": 13}}", 'waiting_json'
@@ -1283,36 +1290,50 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                     return generate_farewell_response(), 'conversation_ended'
             else:
                 # Flujo normal: no hay cita confirmada reciente
+                farewell_intent = analyze_farewell_intent(prompt)
+                if farewell_intent == 'DESPEDIDA':
+                    return generate_farewell_response(), 'conversation_ended'
+                
                 intent = analyze_user_intent(prompt, 'completed')
                 if intent in ['NUEVA_CITA', 'POSITIVA']:
                     return handle_new_appointment_request(prompt)
                 elif intent == 'NEGATIVA':
-                    farewell_intent = analyze_farewell_intent(prompt)
-                    if farewell_intent == 'DESPEDIDA':
-                        return generate_farewell_response(), 'conversation_ended'
-                    else:
-                        return generate_farewell_response(), 'conversation_ended'
+                    return generate_farewell_response(), 'conversation_ended'
                 
-                # Usar conversación contextual mejorada
-                return handle_contextual_conversation(prompt)
-        
-        if stage == 'conversation_ended':
-            # Si el usuario saluda, volver al menú principal
-            saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
-            if any(saludo in prompt.lower() for saludo in saludos):
+                # En lugar de conversación libre, redirigir al menú principal
                 user_name = "Usuario"
                 if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
                     user_name = st.session_state.user_data.get('name', 'Usuario')
-                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
+                return f"No estoy segura de cómo ayudarte con eso. ¿Te gustaría volver al menú principal?\n\n{MESSAGES['login_success_menu'].format(user_name=user_name)}", 'main_menu'
+        
+        if stage == 'conversation_ended':
+            # Si el usuario saluda, reiniciar flujo
+            saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
+            if any(saludo in prompt.lower() for saludo in saludos):
+                # Verificar si el token sigue activo
+                if hasattr(st.session_state, 'auth_token') and st.session_state.auth_token:
+                    user_name = "Usuario"
+                    if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
+                        user_name = st.session_state.user_data.get('name', 'Usuario')
+                    return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
+                else:
+                    return "👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.\n\nIngresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad", 'waiting_email'
             
             # Si no es saludo, mantener conversación cerrada
-            return "¡Que tengas un excelente día! Si necesitas algo más, estaré aquí para ayudarte.", 'conversation_ended'
+            return "¡Que tengas un excelente día! Si necesitas algo más, solo escribe **hola** y te ayudo.", 'conversation_ended'
         
         if stage == 'waiting_json':
             return "El formato JSON no es válido. Por favor, comparte tus resultados en formato JSON válido, ejemplo: {\"Glicemia Basal\": 90, \"Hemoglobina\": 13}", 'waiting_json'
     
-    # Default fallback - use contextual conversation
-    return handle_contextual_conversation(prompt)
+    # Default fallback - redirigir al menú principal en lugar de conversación libre
+    user_name = "Usuario"
+    if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
+        user_name = st.session_state.user_data.get('name', 'Usuario')
+    
+    if hasattr(st.session_state, 'auth_token') and st.session_state.auth_token:
+        return f"No estoy segura de cómo ayudarte con eso. Te muestro las opciones disponibles:\n\n{MESSAGES['login_success_menu'].format(user_name=user_name)}", 'main_menu'
+    else:
+        return "👋 ¡Hola! Soy **Bianca** 😊, tu asistente de salud de GoMind.\n\nIngresa tu **correo electrónico** para enviarte un código de verificación y así confirmar tu identidad", 'waiting_email'
 
 # Rangos de referencia médica
 RANGES = {
