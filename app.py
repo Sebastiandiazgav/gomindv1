@@ -1258,7 +1258,7 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
             return response, new_stage
     
     # Handle medical input stages
-    medical_stages = ['waiting_json', 'completed']
+    medical_stages = ['waiting_json', 'completed', 'conversation_ended']
     if stage in medical_stages:
         response, new_stage = handle_medical_input(prompt)
         if response is not None:
