@@ -1258,7 +1258,7 @@ def handle_authentication_flow(stage, prompt, session):
             if "código" in error_msg.lower() or "inválido" in error_msg.lower():
                 return MESSAGES['invalid_code'], 'waiting_verification_code'
             else:
-                return f"{MESSAGES['code_error']} {error_msg}", 'waiting_verification_code'
+                return MESSAGES['code_error'], 'waiting_verification_code'
     
     elif stage == 'authenticated':
         user_id = prompt.strip()
