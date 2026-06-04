@@ -1114,6 +1114,10 @@ def generate_examination_response(analysis_data, session):
     total_params = metadata.get('parameters_found_count', len(params_found))
     out_of_range_count = metadata.get('parameters_out_of_range_count', len(params_out_of_range))
     
+    # Si no se encontraron parámetros médicos, no es un examen válido
+    if total_params == 0:
+        return "El documento que subiste no corresponde a un examen de laboratorio o no pudimos identificar parámetros médicos en él.", 'selecting_lab'
+    
     user_name = "Usuario"
     if session.user_data:
         user_name = session.user_data.get('name', 'Usuario')
