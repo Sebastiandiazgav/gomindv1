@@ -1360,24 +1360,11 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
             cita_confirmada = "cita quedó confirmada" in last_assistant_msg or "registrada correctamente" in last_assistant_msg
             
             if cita_confirmada:
-                # Después de confirmar cita: priorizar despedida
-                farewell_intent = analyze_farewell_intent(prompt, session)
-                if farewell_intent == 'DESPEDIDA':
-                    return generate_farewell_response(session), 'conversation_ended'
-                
-                # Cualquier otra cosa después de cita confirmada = preguntar nueva cita
-                session.selected_clinic = None
-                session.selected_day = None
-                session.selected_time = None
-                session.clinics = None
-                session.next_days = None
-                
+                # Después de confirmar cita: mostrar menú principal directo
                 user_name = "Usuario"
                 if session.user_data:
                     user_name = session.user_data.get('name', 'Usuario')
-                
-                response = f"""¿Para quién quieres agendar la nueva cita?\n\n1. Mismo usuario ({user_name})\n2. Cambiar de usuario\n\nPor favor, responde con el número de tu opción."""
-                return response, 'selecting_user_for_new_appointment'
+                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
             else:
                 # Flujo normal: no hay cita confirmada reciente
                 farewell_intent = analyze_farewell_intent(prompt, session)
@@ -1409,22 +1396,14 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                     last_assistant_msg = msg["content"]
                     break
             
-            # Si la despedida fue post-cita → Preguntar por nueva cita
+            # Si la despedida fue post-cita → Mostrar menú principal
             post_cita = "cita del" in last_assistant_msg or "haber podido ayudarte" in last_assistant_msg
             
             if post_cita:
-                session.selected_clinic = None
-                session.selected_day = None
-                session.selected_time = None
-                session.clinics = None
-                session.next_days = None
-                
                 user_name = "Usuario"
                 if session.user_data:
                     user_name = session.user_data.get('name', 'Usuario')
-                
-                response = f"""¿Para quién quieres agendar la nueva cita?\n\n1. Mismo usuario ({user_name})\n2. Cambiar de usuario\n\nPor favor, responde con el número de tu opción."""
-                return response, 'selecting_user_for_new_appointment'
+                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
             
             # Si no fue post-cita, verificar saludo para reiniciar
             saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']

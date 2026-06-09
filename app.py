@@ -1280,13 +1280,11 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
             cita_confirmada = "cita quedó confirmada" in last_assistant_msg or "registrada correctamente" in last_assistant_msg
             
             if cita_confirmada:
-                # Después de confirmar cita: priorizar despedida
-                farewell_intent = analyze_farewell_intent(prompt)
-                if farewell_intent == 'DESPEDIDA':
-                    return generate_farewell_response(), 'conversation_ended'
-                
-                # Cualquier otra cosa después de cita confirmada = preguntar nueva cita
-                return handle_new_appointment_request(prompt)
+                # Después de confirmar cita: mostrar menú principal directo
+                user_name = "Usuario"
+                if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
+                    user_name = st.session_state.user_data.get('name', 'Usuario')
+                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
             else:
                 # Flujo normal: no hay cita confirmada reciente
                 farewell_intent = analyze_farewell_intent(prompt)
@@ -1313,11 +1311,14 @@ Ingresa tu **correo electrónico** para enviarte un código de verificación y a
                     last_assistant_msg = msg["content"]
                     break
             
-            # Si la despedida fue post-cita → Preguntar por nueva cita
+            # Si la despedida fue post-cita → Mostrar menú principal
             post_cita = "cita del" in last_assistant_msg or "haber podido ayudarte" in last_assistant_msg
             
             if post_cita:
-                return handle_new_appointment_request(prompt)
+                user_name = "Usuario"
+                if hasattr(st.session_state, 'user_data') and st.session_state.user_data:
+                    user_name = st.session_state.user_data.get('name', 'Usuario')
+                return MESSAGES['login_success_menu'].format(user_name=user_name), 'main_menu'
             
             # Si no fue post-cita, verificar saludo para reiniciar
             saludos = ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'hi', 'buenas']
