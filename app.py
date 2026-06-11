@@ -122,7 +122,7 @@ MESSAGES = {
     'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
     'code_authentication_success': "🎉 ¡Perfecto! Ya verifiqué tu identidad.",
     'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
-    'code_error': "Error procesando el código. Por favor, intenta nuevamente:"
+    'code_error': "No pudimos validar el código ingresado. Por favor, revisa el código e inténtalo nuevamente."
 }
 
 
@@ -1127,7 +1127,7 @@ def handle_authentication_flow(stage, prompt):
                     # Otros errores técnicos
                     return f"Error enviando código de verificación: {error_msg}. Por favor, intenta nuevamente.", 'waiting_email'
         else:
-            return "El dato ingresado no parece ser válido. Por favor, verifica la información.", 'waiting_email'
+            return "Parece que hay un pequeño error en el dato que ingresaste. Revísalo y vuelve a intentarlo, por favor. Recuerda que necesitamos tu correo electrónico", 'waiting_email'
     
     elif stage == 'waiting_verification_code':
         verification_code = prompt.strip()
