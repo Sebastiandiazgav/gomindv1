@@ -104,7 +104,7 @@ MESSAGES = {
     'invalid_product_option': "No reconocí ese producto. Por favor, escribe el nombre de uno de los productos disponibles.",
     'verification_code_sent': "🔒 Para confirmar tu identidad, te envié un código de verificación a tu correo.\nEscríbelo aquí para continuar",
     'code_authentication_success': "🎉 ¡Perfecto! Ya verifiqué tu identidad.",
-    'invalid_code': "Código inválido. Por favor, verifica el código e intenta nuevamente:",
+    'invalid_code': "No pudimos validar el código ingresado. Por favor, revisa el código e inténtalo nuevamente.",
     'code_error': "No pudimos validar el código ingresado. Por favor, revisa el código e inténtalo nuevamente."
 }
 
