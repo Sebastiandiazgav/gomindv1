@@ -559,6 +559,7 @@ def analyze_user_intent(user_message, context_stage):
             'confirming': 'Se le está pidiendo confirmación final para agendar una cita',
             'completed': 'La conversación terminó y el usuario podría querer una nueva cita',
             'showing_products': 'Se pueden mostrar productos de salud disponibles',
+            'waiting_code': 'Se le pidió al usuario un código de verificación enviado a su correo. Determina si el usuario está pidiendo que se le reenvíe el código porque no le llegó',
             'general': 'Conversación general, detectar cualquier intención'
         }
         
@@ -1229,59 +1230,79 @@ def handle_authentication_flow(stage, prompt, session):
     elif stage == 'waiting_verification_code':
         verification_code = prompt.strip()
         
-        # Detectar solicitud de reenvío de código
-        reenvio_keywords = ['no me llegó', 'no me llego', 'reenviar', 'no recibí', 'no recibi', 
-                            'enviar de nuevo', 'otro código', 'otro codigo', 'no llegó', 'no llego']
-        
-        if any(keyword in verification_code.lower() for keyword in reenvio_keywords):
-            if session.resend_count >= 3:
-                return "Has alcanzado el límite de reenvíos. Por favor, revisa tu carpeta de spam o correo no deseado. Si necesitas ayuda adicional, contacta a support@gomind.cl", 'waiting_verification_code'
-            
+        # CASO 1: Si es numérico → Validar directamente como código (sin IA)
+        if verification_code.isdigit():
             try:
-                session.resend_count += 1
-                send_verification_code(session.user_email)
+                auth_data = authenticate_with_code(session.user_email, verification_code)
                 
-                if session.resend_count == 3:
-                    return "Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n\n💡 Si no lo encuentras, revisa tu carpeta de spam o correo no deseado. Si el problema persiste, contacta a support@gomind.cl\n(Último reenvío disponible)", 'waiting_verification_code'
-                else:
-                    return f"Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n(Reenvío {session.resend_count} de 3 disponibles)", 'waiting_verification_code'
+                session.auth_token = auth_data['token']
+                session.company_id = auth_data['company_id']
+                
+                user_data = auth_data['user_data']
+                user_id = user_data.get('user_id') or user_data.get('id') or user_data.get('userId')
+                user_name = user_data.get('name', 'Usuario')
+                
+                session.user_data = {
+                    'id': user_id,
+                    'name': user_name
+                }
+                
+                try:
+                    products = get_company_products(auth_data['company_id'], auth_data['token'])
+                    session.company_products = products
+                except Exception as prod_error:
+                    session.company_products = []
+                
+                user_name = auth_data['user_data'].get('name', 'Usuario')
+                
+                success_message = MESSAGES['code_authentication_success']
+                menu_message = MESSAGES['login_success_menu'].format(user_name=user_name)
+                
+                return f"{success_message}\n\n{menu_message}", 'main_menu'
+                
             except Exception as e:
-                return "No pudimos reenviar el código. Por favor, intenta nuevamente en unos minutos o contacta a support@gomind.cl", 'waiting_verification_code'
+                error_msg = str(e)
+                if "código" in error_msg.lower() or "inválido" in error_msg.lower():
+                    return MESSAGES['invalid_code'], 'waiting_verification_code'
+                else:
+                    return MESSAGES['code_error'], 'waiting_verification_code'
         
-        try:
-            auth_data = authenticate_with_code(session.user_email, verification_code)
+        # CASO 2 y 3: No es numérico → ¿Es solicitud de reenvío o texto basura?
+        else:
+            # Primero verificar con keywords rápidas (sin costo)
+            reenvio_keywords = ['no me llegó', 'no me llego', 'reenviar', 'no recibí', 'no recibi', 
+                                'enviar de nuevo', 'otro código', 'otro codigo', 'no llegó', 'no llego',
+                                'no ha llegado', 'mandarlo otra', 'enviarlo de nuevo', 'volver a enviar',
+                                'no recibido', 'manda otro', 'envia otro', 'envía otro']
             
-            session.auth_token = auth_data['token']
-            session.company_id = auth_data['company_id']
+            es_reenvio = any(keyword in verification_code.lower() for keyword in reenvio_keywords)
             
-            user_data = auth_data['user_data']
+            # Si no coincide con keywords, usar IA como fallback
+            if not es_reenvio:
+                try:
+                    intent = analyze_user_intent(prompt, 'waiting_code')
+                    if intent == 'POSITIVA':
+                        es_reenvio = True
+                except:
+                    es_reenvio = False
             
-            user_id = user_data.get('user_id') or user_data.get('id') or user_data.get('userId')
-            user_name = user_data.get('name', 'Usuario')
-            
-            session.user_data = {
-                'id': user_id,
-                'name': user_name
-            }
-            
-            try:
-                products = get_company_products(auth_data['company_id'], auth_data['token'])
-                session.company_products = products
-            except Exception as prod_error:
-                session.company_products = []
-            
-            user_name = auth_data['user_data'].get('name', 'Usuario')
-            
-            success_message = MESSAGES['code_authentication_success']
-            menu_message = MESSAGES['login_success_menu'].format(user_name=user_name)
-            
-            return f"{success_message}\n\n{menu_message}", 'main_menu'
-            
-        except Exception as e:
-            error_msg = str(e)
-            if "código" in error_msg.lower() or "inválido" in error_msg.lower():
-                return MESSAGES['invalid_code'], 'waiting_verification_code'
+            if es_reenvio:
+                # Solicitud de reenvío confirmada
+                if session.resend_count >= 3:
+                    return "Has alcanzado el límite de reenvíos. Por favor, revisa tu carpeta de spam o correo no deseado. Si necesitas ayuda adicional, contacta a support@gomind.cl", 'waiting_verification_code'
+                
+                try:
+                    session.resend_count += 1
+                    send_verification_code(session.user_email)
+                    
+                    if session.resend_count == 3:
+                        return "Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n\n💡 Si no lo encuentras, revisa tu carpeta de spam o correo no deseado. Si el problema persiste, contacta a support@gomind.cl\n(Último intento disponible)", 'waiting_verification_code'
+                    else:
+                        return f"Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n(Intento {session.resend_count} de 3)", 'waiting_verification_code'
+                except Exception as e:
+                    return "No pudimos reenviar el código. Por favor, intenta nuevamente en unos minutos o contacta a support@gomind.cl", 'waiting_verification_code'
             else:
+                # No es reenvío ni código válido → Texto basura
                 return MESSAGES['code_error'], 'waiting_verification_code'
     
     elif stage == 'authenticated':
