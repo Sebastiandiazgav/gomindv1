@@ -695,6 +695,37 @@ def get_conversation_context():
     
     return " | ".join(context_parts)
 
+def analyze_resend_intent(user_message):
+    """Analiza si el usuario quiere que se le reenvíe el código de verificación"""
+    try:
+        prompt = f"""El usuario está en un proceso de verificación de identidad. Se le envió un código de verificación a su correo electrónico.
+
+El usuario escribió: "{user_message}"
+
+¿El usuario está pidiendo que se le reenvíe el código porque no le llegó, no lo recibió, o necesita uno nuevo?
+
+Responde ÚNICAMENTE con:
+- SI: Si el usuario indica que no recibió el código, no le llegó, quiere que se lo reenvíen, o pide ayuda porque no tiene el código
+- NO: Si el usuario está escribiendo algo que parece ser un intento de código, texto aleatorio, o cualquier otra cosa no relacionada con reenvío
+
+Responde solo con SI o NO."""
+
+        response = bedrock_client.invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 5,
+                "messages": [{"role": "user", "content": prompt}]
+            })
+        )
+        
+        result = json.loads(response['body'].read())
+        answer = result['content'][0]['text'].strip().upper()
+        return 'SI' in answer or 'SÍ' in answer
+        
+    except Exception:
+        return False
+
 def analyze_farewell_intent(message):
     """
     Analiza si el usuario se está despidiendo usando Bedrock
@@ -1173,21 +1204,20 @@ def handle_authentication_flow(stage, prompt):
         # CASO 2 y 3: No es numérico → ¿Es solicitud de reenvío o texto basura?
         else:
             # Primero verificar con keywords rápidas (sin costo)
-            reenvio_keywords = ['no me llegó', 'no me llego', 'reenviar', 'no recibí', 'no recibi', 
+            reenvio_keywords = ['no me llegó', 'no me llego', 'no me ha llegado', 'reenviar', 'reenviame',
+                                'reenvíame', 'no recibí', 'no recibi', 'no he recibido',
                                 'enviar de nuevo', 'otro código', 'otro codigo', 'no llegó', 'no llego',
-                                'no ha llegado', 'mandarlo otra', 'enviarlo de nuevo', 'volver a enviar',
-                                'no recibido', 'manda otro', 'envia otro', 'envía otro']
+                                'no ha llegado', 'no me llega', 'mandarlo otra', 'enviarlo de nuevo', 
+                                'volver a enviar', 'no recibido', 'manda otro', 'envia otro', 'envía otro',
+                                'puedes enviar', 'me puedes enviar', 'no tengo el codigo',
+                                'no tengo código', 'codigo nuevo', 'código nuevo', 'enviar otro',
+                                'mandar otro', 'sin codigo', 'sin código']
             
             es_reenvio = any(keyword in verification_code.lower() for keyword in reenvio_keywords)
             
-            # Si no coincide con keywords, usar IA como fallback
+            # Si no coincide con keywords, usar IA específica como fallback
             if not es_reenvio:
-                try:
-                    intent = analyze_user_intent(prompt, 'waiting_code')
-                    if intent == 'POSITIVA':
-                        es_reenvio = True
-                except:
-                    es_reenvio = False
+                es_reenvio = analyze_resend_intent(prompt)
             
             if es_reenvio:
                 # Solicitud de reenvío confirmada
