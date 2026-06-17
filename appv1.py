@@ -56,6 +56,7 @@ class ConversationSession:
         self.selected_clinic = None
         self.selected_day = None
         self.selected_time = None
+        self.resend_count = 0
         self.next_days = None
         self.available_hours = None
         self.selected_product = None
@@ -1227,6 +1228,25 @@ def handle_authentication_flow(stage, prompt, session):
     
     elif stage == 'waiting_verification_code':
         verification_code = prompt.strip()
+        
+        # Detectar solicitud de reenvío de código
+        reenvio_keywords = ['no me llegó', 'no me llego', 'reenviar', 'no recibí', 'no recibi', 
+                            'enviar de nuevo', 'otro código', 'otro codigo', 'no llegó', 'no llego']
+        
+        if any(keyword in verification_code.lower() for keyword in reenvio_keywords):
+            if session.resend_count >= 3:
+                return "Has alcanzado el límite de reenvíos. Por favor, revisa tu carpeta de spam o correo no deseado. Si necesitas ayuda adicional, contacta a support@gomind.cl", 'waiting_verification_code'
+            
+            try:
+                session.resend_count += 1
+                send_verification_code(session.user_email)
+                
+                if session.resend_count == 3:
+                    return "Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n\n💡 Si no lo encuentras, revisa tu carpeta de spam o correo no deseado. Si el problema persiste, contacta a support@gomind.cl\n(Último reenvío disponible)", 'waiting_verification_code'
+                else:
+                    return f"Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n(Reenvío {session.resend_count} de 3 disponibles)", 'waiting_verification_code'
+            except Exception as e:
+                return "No pudimos reenviar el código. Por favor, intenta nuevamente en unos minutos o contacta a support@gomind.cl", 'waiting_verification_code'
         
         try:
             auth_data = authenticate_with_code(session.user_email, verification_code)

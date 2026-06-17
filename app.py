@@ -1132,6 +1132,25 @@ def handle_authentication_flow(stage, prompt):
     elif stage == 'waiting_verification_code':
         verification_code = prompt.strip()
         
+        # Detectar solicitud de reenvío de código
+        reenvio_keywords = ['no me llegó', 'no me llego', 'reenviar', 'no recibí', 'no recibi', 
+                            'enviar de nuevo', 'otro código', 'otro codigo', 'no llegó', 'no llego']
+        
+        if any(keyword in verification_code.lower() for keyword in reenvio_keywords):
+            if st.session_state.resend_count >= 3:
+                return "Has alcanzado el límite de reenvíos. Por favor, revisa tu carpeta de spam o correo no deseado. Si necesitas ayuda adicional, contacta a support@gomind.cl", 'waiting_verification_code'
+            
+            try:
+                st.session_state.resend_count += 1
+                send_verification_code(st.session_state.user_email)
+                
+                if st.session_state.resend_count == 3:
+                    return "Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n\n💡 Si no lo encuentras, revisa tu carpeta de spam o correo no deseado. Si el problema persiste, contacta a support@gomind.cl\n(Último reenvío disponible)", 'waiting_verification_code'
+                else:
+                    return f"Te envié un nuevo código de verificación a tu correo. Escríbelo aquí para continuar.\n(Reenvío {st.session_state.resend_count} de 3 disponibles)", 'waiting_verification_code'
+            except Exception as e:
+                return "No pudimos reenviar el código. Por favor, intenta nuevamente en unos minutos o contacta a support@gomind.cl", 'waiting_verification_code'
+        
         try:
             # Autenticación completa con código
             auth_data = authenticate_with_code(st.session_state.user_email, verification_code)
@@ -1544,6 +1563,8 @@ if 'company_products' not in st.session_state:
     st.session_state.company_products = None
 if 'user_profile' not in st.session_state:
     st.session_state.user_profile = None
+if 'resend_count' not in st.session_state:
+    st.session_state.resend_count = 0
 
 # Mostrar mensajes del chat
 for message in st.session_state.messages:
